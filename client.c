@@ -56,8 +56,8 @@ int client()
     char buffer[1024];
     while (1)
     {
-        bzero(buffer, 1024);
-        n = poll(pfd, 1, -1);
+        // communication with client
+        n = poll(pfd, 2, -1);
 
         if (n < 0)
         {
@@ -72,16 +72,21 @@ int client()
 
         for (int i = 0; i < 2; i++)
         {
-            if ((pfd[i].revents & POLLIN) && i == 0) // means we got something to read
+            if (pfd[i].revents & POLLIN) // means we got something to read
             {
-                printf("we are here");
-                send(sender_socket, buffer, 1024, 0);
-            }
-            else if ((pfd[i].revents & POLLIN) && i == 1)
-            {
-                printf("got data.\n");
-                read(pfd[1].fd, buffer, 1024);
-                printf("the data is:%s.\n", buffer);
+                if (pfd[i].fd == 0)
+                {
+                    // read from input and send to client socket
+                    read(pfd[0].fd, buffer, 1024);
+                    send(sender_socket, buffer, 1024, 0);
+                }
+                else if (pfd[i].fd == sender_socket)
+                {
+                    // read from client socket and print to console
+                    printf("got data.\n");
+                    read(pfd[1].fd, buffer, 1024);
+                    printf("the data is:%s.\n", buffer);
+                }
             }
         }
     }
