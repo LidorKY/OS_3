@@ -9,7 +9,7 @@
 #include "netinet/tcp.h"
 #include <poll.h>
 
-int client(char* IP, char* PORT)
+int client(char *IP, char *PORT)
 {
     struct pollfd pfd[2];
 
@@ -28,8 +28,8 @@ int client(char* IP, char* PORT)
     // initialize where to send
     struct sockaddr_in Receiver_address;           // initialize where to send
     Receiver_address.sin_family = AF_INET;         // setting for IPV4
-    Receiver_address.sin_port = htons(PORT);       // port is 9999
-    Receiver_address.sin_addr.s_addr = INADDR_ANY; // listening to all (like 0.0.0.0)
+    Receiver_address.sin_port = htons(atoi(PORT));       // port is 9999
+    Receiver_address.sin_addr.s_addr = inet_addr(IP); // listening to all (like 0.0.0.0)
     //---------------------------------------------------------------------------------
     // connecting the Sender and Receiver
     int connection_status = connect(sender_socket, (struct sockaddr *)&Receiver_address, sizeof(Receiver_address));

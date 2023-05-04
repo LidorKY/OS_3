@@ -39,7 +39,7 @@ int server(char *PORT)
     // initialize where to send
     struct sockaddr_in Sender_address, new_addr;
     Sender_address.sin_family = AF_INET;
-    Sender_address.sin_port = htons(PORT);
+    Sender_address.sin_port = htons(atoi(PORT));
     Sender_address.sin_addr.s_addr = INADDR_ANY;
     //---------------------------------------------------------------------------------
     // connecting the Receiver and Sender
