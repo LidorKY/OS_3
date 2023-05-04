@@ -11,7 +11,7 @@
 #include <time.h>
 #include <poll.h>
 
-int server()
+int server(char *PORT)
 {
 
     struct pollfd pfd[2];
@@ -27,11 +27,19 @@ int server()
     {
         printf("-initialize successfully.\n");
     }
+
+    int optval = 1;
+
+    if (setsockopt(receiver_socket, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval)) == -1)
+    {
+        perror("setsockoopt");
+        exit(1);
+    }
     //--------------------------------------------------------------------------------
     // initialize where to send
     struct sockaddr_in Sender_address, new_addr;
     Sender_address.sin_family = AF_INET;
-    Sender_address.sin_port = htons(9999);
+    Sender_address.sin_port = htons(PORT);
     Sender_address.sin_addr.s_addr = INADDR_ANY;
     //---------------------------------------------------------------------------------
     // connecting the Receiver and Sender

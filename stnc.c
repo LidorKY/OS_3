@@ -3,13 +3,13 @@
 
 int main(int argc, char *argv[])
 {
-    if (strcmp(argv[1],"server") == 0)
+    if ((strcmp(argv[1],"-s") == 0))
     {
-        server();
+        server(argv[2]);
     }
-    else if (strcmp(argv[1],"client") == 0)
+    else if ((strcmp(argv[1],"-c") == 0) )
     {
-        client();
+        client(argv[2], argv[3]);
     }
     else
     {
