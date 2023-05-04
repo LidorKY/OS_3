@@ -11,6 +11,11 @@ int main(int argc, char *argv[])
     {
         client(argv[2], argv[3]);
     }
+    else if (1/* need to fill here a condition that sends correct arguments */)
+    {
+        /* code */
+    }
+    
     else
     {
         printf("\nerror.\n");
