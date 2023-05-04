@@ -9,9 +9,13 @@
 #include "netinet/in.h"
 #include "netinet/tcp.h"
 #include <time.h>
+#include <poll.h>
 
 int server()
 {
+
+    struct pollfd pfd[2];
+
     // creating a socket
     int receiver_socket;
     receiver_socket = socket(AF_INET, SOCK_STREAM, 0);
@@ -42,7 +46,7 @@ int server()
     }
     //---------------------------------------------------------------------------------
 
-    int sock_queue = listen(receiver_socket, 2); // now it can listen to two senders in pareral.
+    int sock_queue = listen(receiver_socket, 1); // now it can listen to two senders in pareral.
     if (sock_queue == -1)
     { // if there are already 2 senders.
         printf("-queue is full, can't listen.\n");
@@ -57,10 +61,52 @@ int server()
     client_socket = accept(receiver_socket, (struct sockaddr *)&new_addr, &addr_size); // the func return socket discriptor of a new
     // socket and information of the Sender like IP and Port into new_addr.
     //---------------------------------------------------------------------------------
-    char client_message[100];
-    recv(client_socket, &client_message, sizeof(client_message), 0);
-    printf("server reponse: %s", client_message);
-    send(client_socket, "how are you doing", 50, 0);
+
+    int n;
+
+    pfd[0].fd = 0; // from input;
+    pfd[0].events = POLLIN;
+    pfd[0].revents = 0;
+
+    pfd[1].fd = client_socket; // from socket;
+    pfd[1].events = POLLIN;
+    pfd[1].revents = 0;
+
+    char buffer[1024];
+    while (1)
+    {
+        // communication with client
+        bzero(buffer, 1024);
+        n = poll(pfd, 1, -1);
+
+        if (n < 0)
+        {
+            printf("error on poll\n");
+            continue;
+        }
+        if (n == 0)
+        {
+            printf("waiting...\n");
+            continue;
+        }
+
+        for (int i = 0; i < 2; i++)
+        {
+            if ((pfd[i].revents & POLLIN) && i == 0) // means we got something to read
+            {
+                // write(client_socket, pfd[0].fd, 1024);
+                send(client_socket, buffer, 1024, 0);
+            }
+            else if ((pfd[i].revents & POLLIN) && i == 1)
+            {
+                printf("got data.\n");
+                read(pfd[1].fd, buffer, 1024);
+                printf("the data is:%s.\n", buffer);
+            }
+            
+        }
+    }
+
     close(client_socket);
 
     return 0;
