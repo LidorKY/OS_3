@@ -102,9 +102,9 @@ int server()
                 else if (pfd[i].fd == client_socket)
                 {
                     // read from client socket and print to console
-                    printf("got data.\n");
                     read(pfd[1].fd, buffer, 1024);
-                    printf("the data is:%s.\n", buffer);
+                    printf("the data is:%s", buffer);
+                    printf("\n");
                 }
             }
         }
