@@ -7,7 +7,7 @@ int main(int argc, char *argv[])
     {
         server(argv[2]);
     }
-    else if ((strcmp(argv[1], "-c") == 0) && (strcmp(argv[4], "-p") == 0) && (strcmp(argv[5], "ipv4") == 0) && (strcmp(argv[6], "tcp") == 0)) //add type and param
+    else if ((strcmp(argv[1], "-c") == 0) && (strcmp(argv[4], "-p") == 0) && (argv[5] != NULL) && (argv[6] != NULL)) //add type and param
     {
         sender(argv[2], argv[3], argv[5], argv[6]);
     }

@@ -12,6 +12,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <openssl/md5.h>
+#include <time.h>
 #define SIZE_OF_FILE 101260000
 
 void hash_file_1(char *filename, char *hash)
@@ -55,6 +56,8 @@ void hash_file_1(char *filename, char *hash)
 
 int ipv4_tcp_sender(char *IP, char *PORT, int sock)
 {
+    clock_t start, end;
+    double cpu_time_used;
     sleep(3);
     int ipv4_tcp_socket;
     ipv4_tcp_socket = socket(AF_INET, SOCK_STREAM, 0); // because we are in linux the default cc is cubic.
@@ -64,7 +67,7 @@ int ipv4_tcp_sender(char *IP, char *PORT, int sock)
     }
     else
     {
-        printf("-initialize successfully.\n");
+        // printf("-initialize successfully.\n");
     }
     //--------------------------------------------------------------------------------
     // initialize where to send
@@ -81,7 +84,7 @@ int ipv4_tcp_sender(char *IP, char *PORT, int sock)
     }
     else
     {
-        printf("-connected.\n");
+        // printf("-connected.\n");
     }
     //---------------------------------------------------------------------------------
     // send the file
@@ -103,21 +106,25 @@ int ipv4_tcp_sender(char *IP, char *PORT, int sock)
     {
     }
     fclose(fp);
-    if (send(sock, "start_time",11, 0) == -1)// send the time we have started to send the file in the socket -"sender_socket"
+    if (send(sock, "start_time", 11, 0) == -1) // send the time we have started to send the file in the socket -"sender_socket"
     {
         perror("error in sending the start time.");
         exit(1);
     }
     ssize_t temp = 0;
-    if ((temp = send(ipv4_tcp_socket, array,SIZE_OF_FILE, 0)) == -1) //sendng the actual file.
+    start = clock();
+    if ((temp = send(ipv4_tcp_socket, array, SIZE_OF_FILE, 0)) == -1) // sendng the actual file.
     {
         perror("error in sending the file.");
         exit(1);
     }
-    printf("the size: %zd\n", temp);
+    end = clock();
+    cpu_time_used = (double)(end - start) / (CLOCKS_PER_SEC / 1000);
+    printf(",%f\n", cpu_time_used);
+    // printf("the size: %zd\n", temp);
     close(ipv4_tcp_socket);
     free(array);
-    if (send(sock, "finish_time",12, 0) == -1)// send the time we have finished to send the file in the socket -"sender_socket"
+    if (send(sock, "finish_time", 12, 0) == -1) // send the time we have finished to send the file in the socket -"sender_socket"
     {
         perror("error in sending the start time.");
         exit(1);
@@ -125,11 +132,11 @@ int ipv4_tcp_sender(char *IP, char *PORT, int sock)
     return 0;
 }
 
-int ipv4_udp_sender() {return 0;}
-int ipv6_tcp_sender() {return 0;}
-int ipv6_udp_sender() {return 0;}
+int ipv4_udp_sender(char *IP, char *PORT, int sock) { return 0; }
+int ipv6_tcp_sender(char *IP, char *PORT, int sock) { return 0; }
+int ipv6_udp_sender(char *IP, char *PORT, int sock) { return 0; }
 
-int sender(char *IP, char *PORT, char* TYPE, char* PARAM)
+int sender(char *IP, char *PORT, char *TYPE, char *PARAM)
 {
 
     // creating a socket
@@ -177,31 +184,40 @@ int sender(char *IP, char *PORT, char* TYPE, char* PARAM)
 
     // firstly send in the socket -"sender_socket" to the receiver which socket he needs to open.
     send(sender_socket, IP, 16, 0);
-    printf("the ip is: %s", IP);
-    printf("\n");
+    // printf("the ip is: %s", IP);
+    // printf("\n");
     sleep(1);
     send(sender_socket, PORT, 6, 0);
-    printf("the port is: %s", PORT);
-    printf("\n");
+    // printf("the port is: %s", PORT);
+    // printf("\n");
     sleep(1);
     send(sender_socket, TYPE, 5, 0);
-    printf("the type is: %s", TYPE);
-    printf("\n");
+    // printf("the type is: %s", TYPE);
+    // printf("\n");
     sleep(1);
     send(sender_socket, PARAM, 9, 0);
-    printf("the param is: %s", PARAM);
-    printf("\n");
-
-
+    // printf("the param is: %s", PARAM);
+    // printf("\n");
+    printf("%s_%s", TYPE, PARAM);
+    // printf("\n");
 
     // need to create here 8 different comumunications.
-    ipv4_tcp_sender(IP, PORT, sender_socket);
-    // int ipv4_udp_sender();
-    // int ipv6_tcp_sender();
-    // int ipv6_udp_sender();
-
-    // dont need to use poll here just loop of sending the file.
-
+    if (strcmp(TYPE, "ipv4") == 0 && strcmp(PARAM, "tcp") == 0)
+    {
+        ipv4_tcp_sender(IP, PORT, sender_socket);
+    }
+    else if (strcmp(TYPE, "ipv4") == 0 && strcmp(PARAM, "udp") == 0)
+    {
+        ipv4_udp_sender(IP, PORT, sender_socket);
+    }
+    else if (strcmp(TYPE, "ipv6") == 0 && strcmp(PARAM, "tcp") == 0)
+    {
+        ipv6_tcp_sender(IP, PORT, sender_socket);
+    }
+    else if (strcmp(TYPE, "ipv6") == 0 && strcmp(PARAM, "udp") == 0)
+    {
+        ipv6_udp_sender(IP, PORT, sender_socket);
+    }
     close(sender_socket);
     return 0;
 }
