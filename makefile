@@ -19,4 +19,4 @@ receiver.o: receiver.c
 	gcc -Wall -g -c receiver.c
 
 clean:
-	rm -f *.o stnc
+	rm -f *.o stnc gotme.txt
