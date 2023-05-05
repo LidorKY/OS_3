@@ -234,9 +234,9 @@ int ipv4_tcp_receiver(char *IP, char *port, int sock)
     return 0;
 }
 
-int ipv4_udp_receiver() { return 0; }
-int ipv6_tcp_receiver() { return 0; }
-int ipv6_udp_receiver() { return 0; }
+int ipv4_udp_receiver(char *IP, char *port, int sock) { return 0; }
+int ipv6_tcp_receiver(char *IP, char *port, int sock) { return 0; }
+int ipv6_udp_receiver(char *IP, char *port, int sock) { return 0; }
 
 int receiver(char *PORT)
 {
@@ -317,11 +317,24 @@ int receiver(char *PORT)
     printf("the param is: %s", PARAM);
     printf("\n");
 
-    // receive 1 type of 8 different communcations and open a correct socket.
-    ipv4_tcp_receiver(IP, port, client_socket);
-    // int ipv4_udp_receiver();
-    // int ipv6_tcp_receiver();
-    // int ipv6_udp_receiver();
+
+
+    if (strcmp(TYPE, "ipv4") == 0 && strcmp(PARAM, "tcp") == 0)
+    {
+        ipv4_tcp_receiver(IP, port, client_socket);
+    }
+    else if (strcmp(TYPE, "ipv4") == 0 && strcmp(PARAM, "udp") == 0)
+    {
+        ipv4_udp_receiver(IP, port, client_socket);
+    }
+    else if (strcmp(TYPE, "ipv6") == 0 && strcmp(PARAM, "tcp") == 0)
+    {
+        ipv6_tcp_receiver(IP, port, client_socket);
+    }
+    else if (strcmp(TYPE, "ipv6") == 0 && strcmp(PARAM, "udp") == 0)
+    {
+        ipv6_udp_receiver(IP, port, client_socket);
+    }
 
     // receive the initial time in socket - "client_socket".
     // receiving the file in the secondry socket - must to use poll here - only because arkady said so.
