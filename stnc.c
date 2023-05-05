@@ -3,19 +3,18 @@
 
 int main(int argc, char *argv[])
 {
-    if ((strcmp(argv[1],"-s") == 0))
+    if ((strcmp(argv[1], "-s") == 0))
     {
         server(argv[2]);
     }
-    else if ((strcmp(argv[1],"-c") == 0) )
+    else if ((strcmp(argv[1], "-c") == 0))
     {
         client(argv[2], argv[3]);
     }
-    else if (1/* need to fill here a condition that sends correct arguments */)
+    else if ((strcmp(argv[1], "sender") == 0))
     {
-        /* code */
+        sender(argv[2], argv[3]);
     }
-    
     else
     {
         printf("\nerror.\n");

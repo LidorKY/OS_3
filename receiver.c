@@ -15,7 +15,7 @@
 #include <string.h>
 #include <openssl/md5.h>
 
-int server(char *PORT)
+int receiver(char *PORT)
 {
 
     struct pollfd pfd[2];

@@ -1,7 +1,7 @@
 all: stnc
 
-stnc: stnc.o client.o server.o
-	gcc -Wall -g -o stnc stnc.o client.o server.o sender.o receiver.o
+stnc: stnc.o client.o server.o sender.o receiver.o
+	gcc -Wall -g -o stnc stnc.o client.o server.o sender.o receiver.o -lssl -lcrypto
 
 stnc.o: stnc.c
 	gcc -Wall -g -c stnc.c
