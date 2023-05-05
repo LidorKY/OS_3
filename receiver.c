@@ -234,7 +234,103 @@ int ipv4_tcp_receiver(char *IP, char *port, int sock)
     return 0;
 }
 
-int ipv4_udp_receiver(char *IP, char *port, int sock) { return 0; }
+int ipv4_udp_receiver(char *IP, char *port, int sock)
+{
+    struct pollfd pfd[2];
+    int server_socket = socket(AF_INET, SOCK_DGRAM, 0);
+    if (server_socket < 0)
+    {
+        perror("Error creating socket");
+        exit(EXIT_FAILURE);
+    }
+    struct sockaddr_in server_addr;
+    memset(&server_addr, 0, sizeof(server_addr));
+    server_addr.sin_family = AF_INET;
+    server_addr.sin_port = htons(atoi(port));
+    server_addr.sin_addr.s_addr = INADDR_ANY;
+    if (bind(server_socket, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0)
+    {
+        perror("Error binding socket");
+        exit(EXIT_FAILURE);
+    }
+    FILE *fp = fopen("gotme.txt", "wb");
+    if (fp == NULL)
+    {
+        perror("Error creating file");
+        exit(EXIT_FAILURE);
+    }
+    int client_addr_len = sizeof(server_addr);
+    printf("royyyyyyyyyy\n");
+    size_t current_size = 0;
+    int n;
+    pfd[0].fd = sock; // from input;
+    pfd[0].events = POLLIN;
+    pfd[0].revents = 0;
+    pfd[1].fd = server_socket; // from socket;
+    pfd[1].events = POLLIN;
+    pfd[1].revents = 0;
+    char timer[20];
+    char buffer[100000];
+    int counter = 0;
+
+    // recvfrom(server_socket, buffer, sizeof(buffer), 0, (struct sockaddr*)&server_addr, &client_addr_len);
+    while (1)
+    {
+        n = poll(pfd, 2, 5000);
+        if (n < 0)
+        {
+            printf("error on poll\n");
+            continue;
+        }
+        if (n == 0)
+        {
+            printf("timeout...\n");
+            break;
+        }
+
+        if (pfd[0].revents & POLLIN && counter < 2) // means we got something to read
+        {
+            bzero(timer, 20);
+            read(pfd[0].fd, timer, 20);
+            printf("got: %s", timer);
+            printf("\n");
+            counter++;
+        }
+        else if (pfd[1].revents & POLLIN)
+        {
+            if (recvfrom(server_socket, buffer, sizeof(buffer), 0, (struct sockaddr *)&server_addr, &client_addr_len) > 0 /*pfd[i].fd == server_socket && current_size < SIZE_OF_FILE*/)
+            {
+                printf("here");
+                bzero(buffer, 100000);
+                current_size += read(pfd[1].fd, buffer, 100000);
+                fprintf(fp, "%s", buffer);
+            }
+            else if (current_size >= SIZE_OF_FILE && counter >= 2)
+            {
+                fclose(fp);
+                /*----hashing the file + printing the hash.----*/
+                char hash[1000];
+                bzero(hash, 1000);
+                hash_file_2("gotme.txt", hash); // need to hash here the file. - have already a function for it.
+                char hex_hash[33];
+                for (int i = 0; i < 32; i++)
+                {
+                    sprintf(&hex_hash[i * 2], "%02x", (unsigned int)hash[i]);
+                }
+                hex_hash[32] = '\0';
+                printf("Hash value: %s\n", hex_hash);
+                /*----hashing the file + printing the hash.----*/
+                close(server_socket);
+                return 0;
+            }
+        }
+    }
+
+    fclose(fp);
+    close(server_socket);
+    return 0;
+}
+
 int ipv6_tcp_receiver(char *IP, char *port, int sock) { return 0; }
 int ipv6_udp_receiver(char *IP, char *port, int sock) { return 0; }
 
@@ -317,8 +413,6 @@ int receiver(char *PORT)
     printf("the param is: %s", PARAM);
     printf("\n");
 
-
-
     if (strcmp(TYPE, "ipv4") == 0 && strcmp(PARAM, "tcp") == 0)
     {
         ipv4_tcp_receiver(IP, port, client_socket);
@@ -327,14 +421,14 @@ int receiver(char *PORT)
     {
         ipv4_udp_receiver(IP, port, client_socket);
     }
-    else if (strcmp(TYPE, "ipv6") == 0 && strcmp(PARAM, "tcp") == 0)
-    {
-        ipv6_tcp_receiver(IP, port, client_socket);
-    }
-    else if (strcmp(TYPE, "ipv6") == 0 && strcmp(PARAM, "udp") == 0)
-    {
-        ipv6_udp_receiver(IP, port, client_socket);
-    }
+    // else if (strcmp(TYPE, "ipv6") == 0 && strcmp(PARAM, "tcp") == 0)
+    // {
+    //     ipv6_tcp_receiver(IP, port, client_socket);
+    // }
+    // else if (strcmp(TYPE, "ipv6") == 0 && strcmp(PARAM, "udp") == 0)
+    // {
+    //     ipv6_udp_receiver(IP, port, client_socket);
+    // }
 
     // receive the initial time in socket - "client_socket".
     // receiving the file in the secondry socket - must to use poll here - only because arkady said so.

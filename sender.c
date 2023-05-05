@@ -132,7 +132,75 @@ int ipv4_tcp_sender(char *IP, char *PORT, int sock)
     return 0;
 }
 
-int ipv4_udp_sender(char *IP, char *PORT, int sock) { return 0; }
+int ipv4_udp_sender(char *IP, char *PORT, int sock)
+{
+    clock_t start, end;
+    double cpu_time_used;
+    sleep(3);
+    int client_socket = socket(AF_INET, SOCK_DGRAM, 0);
+    if (client_socket < 0)
+    {
+        perror("Error creating socket");
+        exit(EXIT_FAILURE);
+    }
+
+    struct sockaddr_in server_addr;
+    memset(&server_addr, 0, sizeof(server_addr));
+
+    server_addr.sin_family = AF_INET;
+    server_addr.sin_port = htons(atoi(PORT));
+    server_addr.sin_addr.s_addr = inet_addr(IP);
+
+    char *filename = "sendme.txt";
+    FILE *fp = fopen(filename, "rb");
+    if (fp == NULL)
+    {
+        perror("Error opening file");
+        exit(EXIT_FAILURE);
+    }
+    int fd = fileno(fp);
+    off_t file_size = lseek(fd, 0, SEEK_END);
+    lseek(fd, 0, SEEK_SET);
+
+    char buffer[60000];
+    int total_sent = 0, bytes_sent;
+    if (send(sock, "start_time", 11, 0) == -1) // send the time we have started to send the file in the socket -"sender_socket"
+    {
+        perror("error in sending the start time.");
+        exit(1);
+    }
+    start = clock();
+    while (total_sent < file_size)
+    {
+        int remaining = file_size - total_sent;
+        int to_send = remaining < 60000 ? remaining : 60000;
+        if (fread(buffer, 1, to_send, fp) != to_send)
+        {
+            perror("Error reading file");
+            exit(EXIT_FAILURE);
+        }
+        bytes_sent = sendto(client_socket, buffer, to_send, 0, (struct sockaddr *)&server_addr, sizeof(server_addr));
+        if (bytes_sent < 0)
+        {
+            perror("Error sending message");
+            exit(EXIT_FAILURE);
+        }
+        total_sent += bytes_sent;
+    }
+    end = clock();
+    if (send(sock, "finish_time", 12, 0) == -1) // send the time we have finished to send the file in the socket -"sender_socket"
+    {
+        perror("error in sending the start time.");
+        exit(1);
+    }
+    printf("Sent %ld bytes\n", total_sent);
+    cpu_time_used = (double)(end - start) / (CLOCKS_PER_SEC / 1000);
+    printf(",%f\n", cpu_time_used);
+    fclose(fp);
+    close(client_socket);
+    return 0;
+}
+
 int ipv6_tcp_sender(char *IP, char *PORT, int sock) { return 0; }
 int ipv6_udp_sender(char *IP, char *PORT, int sock) { return 0; }
 
