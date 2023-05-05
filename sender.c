@@ -14,7 +14,7 @@
 #include <openssl/md5.h>
 #define SIZE_OF_FILE 101260000
 
-void hash_file(char *filename, char *hash)
+void hash_file_1(char *filename, char *hash)
 {
     FILE *fp;
     char *array = (char *)calloc(SIZE_OF_FILE, sizeof(char));
@@ -88,7 +88,7 @@ int ipv4_tcp_sender(char *IP, char *PORT, int sock)
     FILE *fp;
     char *array = (char *)calloc(SIZE_OF_FILE, sizeof(char));
     size_t bytes_read;
-    fp = fopen("sendme.txt", "r");
+    fp = fopen("sendme.txt", "rb");
     if (fp == NULL)
     {
         fprintf(stderr, "Error: could not open file '%s'\n", "sendme.txt");
@@ -165,7 +165,7 @@ int sender(char *IP, char *PORT, char* TYPE, char* PARAM)
     /*----hashing the file + printing the hash.----*/
     char hash[1000];
     bzero(hash, 1000);
-    hash_file("sendme.txt", hash); // need to hash here the file. - have already a function for it.
+    hash_file_1("sendme.txt", hash); // need to hash here the file. - have already a function for it.
     char hex_hash[33];
     for (int i = 0; i < 32; i++)
     {

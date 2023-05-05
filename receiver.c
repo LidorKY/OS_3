@@ -16,6 +16,45 @@
 #include <openssl/md5.h>
 #define SIZE_OF_FILE 101260000
 
+void hash_file_2(char *filename, char *hash)
+{
+    FILE *fp;
+    char *array = (char *)calloc(SIZE_OF_FILE, sizeof(char));
+    size_t bytes_read;
+    MD5_CTX context;
+
+    // Open the file in binary mode
+    fp = fopen(filename, "rb");
+    if (fp == NULL)
+    {
+        fprintf(stderr, "Error: could not open file '%s'\n", filename);
+        exit(1);
+    }
+
+    // Check if the file was opened successfully
+    if (ferror(fp))
+    {
+        fprintf(stderr, "Error: could not read from file '%s'\n", filename);
+        exit(1);
+    }
+
+    // Initialize the MD5 context
+    MD5_Init(&context);
+
+    // Read the file in chunks and update the hash context
+    while ((bytes_read = fread(array, 1, SIZE_OF_FILE, fp)) != 0)
+    {
+        MD5_Update(&context, array, bytes_read);
+    }
+
+    // Finalize the hash and store the result in the provided buffer
+    MD5_Final((unsigned char *)hash, &context);
+    free(array);
+
+    // Close the file
+    fclose(fp);
+}
+
 int ipv4_tcp_receiver(char *IP, char *port, int sock)
 {
     struct pollfd pfd[2];
@@ -78,7 +117,7 @@ int ipv4_tcp_receiver(char *IP, char *port, int sock)
     pfd[1].events = POLLIN;
     pfd[1].revents = 0;
     FILE *fp;
-    fp = fopen("gotme.txt", "a");
+    fp = fopen("gotme.txt", "wb+");
     if (fp == NULL)
     {
         fprintf(stderr, "Error: could not open file '%s'\n", "gotme.txt");
@@ -126,10 +165,62 @@ int ipv4_tcp_receiver(char *IP, char *port, int sock)
                     current_size += read(pfd[1].fd, buffer, 100000);
                     fprintf(fp, "%s", buffer);
                 }
-                else if(current_size >= SIZE_OF_FILE && strcmp(timer, "finish_time") == 0)
+                else if (current_size >= SIZE_OF_FILE && counter >= 2)
                 {
                     printf("the size: %zu\n", current_size);
-                    close(fp);
+                    fclose(fp);
+                    FILE *f = fopen("gotme.txt", "rwb");
+                    if (f == NULL)
+                    {
+                        return -1;
+                    }
+                    size_t to_delete = 0;
+                    if (fseek(f, 0, SEEK_END) != 0)
+                    {
+                        fclose(f);
+                        return -1;
+                    }
+                    to_delete = ftell(f);
+                    fclose(f);
+
+                    FILE *p = fopen("gotme.txt", "rb+");
+                    if (p == NULL)
+                    {
+                        return -1;
+                    }
+                    if (fseek(p, -(to_delete - SIZE_OF_FILE), SEEK_END) != 0)
+                    {
+                        perror("fseek");
+                        exit(1);
+                    }
+                    long pos = ftell(p);
+                    if (pos == -1)
+                    {
+                        perror("ftell");
+                        exit(1);
+                    }
+                    if (ftruncate(fileno(p), pos) != 0)
+                    {
+                        perror("ftruncate");
+                        exit(1);
+                    }
+                    if (fclose(p) != 0)
+                    {
+                        perror("fclose");
+                        exit(1);
+                    }
+                    /*----hashing the file + printing the hash.----*/
+                    char hash[1000];
+                    bzero(hash, 1000);
+                    hash_file_2("gotme.txt", hash); // need to hash here the file. - have already a function for it.
+                    char hex_hash[33];
+                    for (int i = 0; i < 32; i++)
+                    {
+                        sprintf(&hex_hash[i * 2], "%02x", (unsigned int)hash[i]);
+                    }
+                    hex_hash[32] = '\0';
+                    printf("Hash value: %s\n", hex_hash);
+                    /*----hashing the file + printing the hash.----*/
                     close(client_socket);
                     close(receiver_socket);
                     return 0;
