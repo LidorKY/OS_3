@@ -91,7 +91,6 @@ int ipv4_tcp_receiver(char *IP, char *port, int sock)
     client_socket = accept(receiver_socket, (struct sockaddr *)&new_addr, &addr_size); // the func return socket discriptor of a new
     // socket and information of the Sender like IP and Port into new_addr.
     //---------------------------------------------------------------------------------
-
     int n;
     pfd[0].fd = sock; // from input;
     pfd[0].events = POLLIN;
@@ -99,7 +98,6 @@ int ipv4_tcp_receiver(char *IP, char *port, int sock)
     pfd[1].fd = client_socket; // from socket;
     pfd[1].events = POLLIN;
     pfd[1].revents = 0;
-
     uint8_t *buffer = (uint8_t *)calloc(SIZE_OF_FILE, sizeof(uint8_t));
     char timer[20];
     int counter = 0;
@@ -209,7 +207,6 @@ int ipv4_udp_receiver(char *IP, char *port, int sock)
             }
         }
     }
-    // add hash here.
     hash_2(buffer, SIZE_OF_FILE);
     free(buffer);
     close(server_socket);
