@@ -16,43 +16,26 @@
 #include <openssl/md5.h>
 #define SIZE_OF_FILE 101260000
 
-void hash_file_2(char *filename, char *hash)
+void hash_2(uint8_t *array, size_t array_size)
 {
-    FILE *fp;
-    char *array = (char *)calloc(SIZE_OF_FILE, sizeof(char));
-    size_t bytes_read;
+    unsigned char hash[MD5_DIGEST_LENGTH];
     MD5_CTX context;
-
-    // Open the file in binary mode
-    fp = fopen(filename, "rb");
-    if (fp == NULL)
-    {
-        fprintf(stderr, "Error: could not open file '%s'\n", filename);
-        exit(1);
-    }
-
-    // Check if the file was opened successfully
-    if (ferror(fp))
-    {
-        fprintf(stderr, "Error: could not read from file '%s'\n", filename);
-        exit(1);
-    }
 
     // Initialize the MD5 context
     MD5_Init(&context);
 
-    // Read the file in chunks and update the hash context
-    while ((bytes_read = fread(array, 1, SIZE_OF_FILE, fp)) != 0)
+    // Update the hash context with the array data
+    MD5_Update(&context, array, array_size);
+
+    // Finalize the hash and store the result in the 'hash' buffer
+    MD5_Final(hash, &context);
+
+    // Print the resulting hash
+    for (int i = 0; i < MD5_DIGEST_LENGTH; ++i)
     {
-        MD5_Update(&context, array, bytes_read);
+        printf("%02x", hash[i]);
     }
-
-    // Finalize the hash and store the result in the provided buffer
-    MD5_Final((unsigned char *)hash, &context);
-    free(array);
-
-    // Close the file
-    fclose(fp);
+    printf("\n");
 }
 
 int ipv4_tcp_receiver(char *IP, char *port, int sock)
@@ -116,20 +99,8 @@ int ipv4_tcp_receiver(char *IP, char *port, int sock)
     pfd[1].fd = client_socket; // from socket;
     pfd[1].events = POLLIN;
     pfd[1].revents = 0;
-    FILE *fp;
-    fp = fopen("gotme.txt", "wb+");
-    if (fp == NULL)
-    {
-        fprintf(stderr, "Error: could not open file '%s'\n", "gotme.txt");
-        exit(1);
-    }
-    if (ferror(fp))
-    {
-        printf("here\n");
-        fprintf(stderr, "Error: could not read from file '%s'\n", "gotme.txt");
-        exit(1);
-    }
-    char buffer[100000];
+
+    uint8_t *buffer = (uint8_t *)calloc(SIZE_OF_FILE, sizeof(uint8_t));
     char timer[20];
     int counter = 0;
     size_t current_size = 0;
@@ -146,89 +117,28 @@ int ipv4_tcp_receiver(char *IP, char *port, int sock)
             printf("timeout...\n");
             break;
         }
-
-        for (int i = 0; i < 2; i++)
+        if (current_size >= SIZE_OF_FILE && counter >= 2)
         {
-            if (pfd[i].revents & POLLIN) // means we got something to read
-            {
-                if (pfd[i].fd == sock && counter < 2)
-                {
-                    bzero(timer, 20);
-                    read(pfd[0].fd, timer, 20);
-                    printf("got: %s", timer);
-                    printf("\n");
-                    counter++;
-                }
-                else if (pfd[i].fd == client_socket && current_size < SIZE_OF_FILE)
-                {
-                    bzero(buffer, 100000);
-                    current_size += read(pfd[1].fd, buffer, 100000);
-                    fprintf(fp, "%s", buffer);
-                }
-                else if (current_size >= SIZE_OF_FILE && counter >= 2)
-                {
-                    printf("the size: %zu\n", current_size);
-                    fclose(fp);
-                    FILE *f = fopen("gotme.txt", "rwb");
-                    if (f == NULL)
-                    {
-                        return -1;
-                    }
-                    size_t to_delete = 0;
-                    if (fseek(f, 0, SEEK_END) != 0)
-                    {
-                        fclose(f);
-                        return -1;
-                    }
-                    to_delete = ftell(f);
-                    fclose(f);
-
-                    FILE *p = fopen("gotme.txt", "rb+");
-                    if (p == NULL)
-                    {
-                        return -1;
-                    }
-                    if (fseek(p, -(to_delete - SIZE_OF_FILE), SEEK_END) != 0)
-                    {
-                        perror("fseek");
-                        exit(1);
-                    }
-                    long pos = ftell(p);
-                    if (pos == -1)
-                    {
-                        perror("ftell");
-                        exit(1);
-                    }
-                    if (ftruncate(fileno(p), pos) != 0)
-                    {
-                        perror("ftruncate");
-                        exit(1);
-                    }
-                    if (fclose(p) != 0)
-                    {
-                        perror("fclose");
-                        exit(1);
-                    }
-                    /*----hashing the file + printing the hash.----*/
-                    char hash[1000];
-                    bzero(hash, 1000);
-                    hash_file_2("gotme.txt", hash); // need to hash here the file. - have already a function for it.
-                    char hex_hash[33];
-                    for (int i = 0; i < 32; i++)
-                    {
-                        sprintf(&hex_hash[i * 2], "%02x", (unsigned int)hash[i]);
-                    }
-                    hex_hash[32] = '\0';
-                    printf("Hash value: %s\n", hex_hash);
-                    /*----hashing the file + printing the hash.----*/
-                    close(client_socket);
-                    close(receiver_socket);
-                    return 0;
-                }
-            }
+            printf("the size: %zu\n", current_size);
+            hash_2(buffer, SIZE_OF_FILE);
+            free(buffer);
+            close(client_socket);
+            close(receiver_socket);
+            return 0;
+        }
+        else if (pfd[0].revents & POLLIN) // means we got something to read
+        {
+            bzero(timer, 20);
+            read(pfd[0].fd, timer, 20);
+            printf("got: %s", timer);
+            printf("\n");
+            counter++;
+        }
+        else if (pfd[1].revents & POLLIN)
+        {
+            current_size += read(pfd[1].fd, buffer, SIZE_OF_FILE);
         }
     }
-    close(fp);
     close(client_socket);
     close(receiver_socket);
     return 0;
@@ -253,14 +163,7 @@ int ipv4_udp_receiver(char *IP, char *port, int sock)
         perror("Error binding socket");
         exit(EXIT_FAILURE);
     }
-    FILE *fp = fopen("gotme.txt", "wb");
-    if (fp == NULL)
-    {
-        perror("Error creating file");
-        exit(EXIT_FAILURE);
-    }
     int client_addr_len = sizeof(server_addr);
-    printf("royyyyyyyyyy\n");
     size_t current_size = 0;
     int n;
     pfd[0].fd = sock; // from input;
@@ -270,10 +173,8 @@ int ipv4_udp_receiver(char *IP, char *port, int sock)
     pfd[1].events = POLLIN;
     pfd[1].revents = 0;
     char timer[20];
-    char buffer[100000];
+    uint8_t *buffer = (uint8_t *)calloc(SIZE_OF_FILE, sizeof(uint8_t));
     int counter = 0;
-
-    // recvfrom(server_socket, buffer, sizeof(buffer), 0, (struct sockaddr*)&server_addr, &client_addr_len);
     while (1)
     {
         n = poll(pfd, 2, 5000);
@@ -298,35 +199,19 @@ int ipv4_udp_receiver(char *IP, char *port, int sock)
         }
         else if (pfd[1].revents & POLLIN)
         {
-            if (recvfrom(server_socket, buffer, sizeof(buffer), 0, (struct sockaddr *)&server_addr, &client_addr_len) > 0 /*pfd[i].fd == server_socket && current_size < SIZE_OF_FILE*/)
+            // current_size += read(pfd[1].fd, buffer, SIZE_OF_FILE);
+            printf("here\n");
+            ssize_t num_bytes_received = recvfrom(server_socket, buffer, SIZE_OF_FILE, 0, (struct sockaddr *)&server_addr, &client_addr_len);
+            if (num_bytes_received == 0)
             {
-                printf("here");
-                bzero(buffer, 100000);
-                current_size += read(pfd[1].fd, buffer, 100000);
-                fprintf(fp, "%s", buffer);
-            }
-            else if (current_size >= SIZE_OF_FILE && counter >= 2)
-            {
-                fclose(fp);
-                /*----hashing the file + printing the hash.----*/
-                char hash[1000];
-                bzero(hash, 1000);
-                hash_file_2("gotme.txt", hash); // need to hash here the file. - have already a function for it.
-                char hex_hash[33];
-                for (int i = 0; i < 32; i++)
-                {
-                    sprintf(&hex_hash[i * 2], "%02x", (unsigned int)hash[i]);
-                }
-                hex_hash[32] = '\0';
-                printf("Hash value: %s\n", hex_hash);
-                /*----hashing the file + printing the hash.----*/
-                close(server_socket);
-                return 0;
+                printf("i am here");
+                break;
             }
         }
     }
-
-    fclose(fp);
+    // add hash here.
+    hash_2(buffer, SIZE_OF_FILE);
+    free(buffer);
     close(server_socket);
     return 0;
 }
@@ -421,14 +306,14 @@ int receiver(char *PORT)
     {
         ipv4_udp_receiver(IP, port, client_socket);
     }
-    // else if (strcmp(TYPE, "ipv6") == 0 && strcmp(PARAM, "tcp") == 0)
-    // {
-    //     ipv6_tcp_receiver(IP, port, client_socket);
-    // }
-    // else if (strcmp(TYPE, "ipv6") == 0 && strcmp(PARAM, "udp") == 0)
-    // {
-    //     ipv6_udp_receiver(IP, port, client_socket);
-    // }
+    else if (strcmp(TYPE, "ipv6") == 0 && strcmp(PARAM, "tcp") == 0)
+    {
+        ipv6_tcp_receiver(IP, port, client_socket);
+    }
+    else if (strcmp(TYPE, "ipv6") == 0 && strcmp(PARAM, "udp") == 0)
+    {
+        ipv6_udp_receiver(IP, port, client_socket);
+    }
 
     // receive the initial time in socket - "client_socket".
     // receiving the file in the secondry socket - must to use poll here - only because arkady said so.
