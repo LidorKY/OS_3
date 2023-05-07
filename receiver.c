@@ -149,7 +149,6 @@ int ipv4_tcp_receiver(char *IP, char *port, int sock)
             remaining -= received;
         }
     }
-
     hash_2(buffer, SIZE_OF_FILE);
     free(buffer);
     close(client_socket);
@@ -188,6 +187,9 @@ int ipv4_udp_receiver(char *IP, char *port, int sock)
     char timer[20];
     uint8_t *buffer = (uint8_t *)calloc(SIZE_OF_FILE, sizeof(uint8_t));
     int counter = 0;
+    ssize_t received = 0;
+    size_t totalReceived = 0;
+    size_t remaining = SIZE_OF_FILE;
     while (1)
     {
         n = poll(pfd, 2, 5000);
@@ -201,8 +203,15 @@ int ipv4_udp_receiver(char *IP, char *port, int sock)
             printf("timeout...\n");
             break;
         }
-
-        if (pfd[0].revents & POLLIN && counter < 2) // means we got something to read
+        if (totalReceived == SIZE_OF_FILE && counter >= 2)
+        {
+            printf("the size: %zu\n", totalReceived);
+            hash_2(buffer, SIZE_OF_FILE);
+            free(buffer);
+            close(server_socket);
+            return 0;
+        }
+        else if (pfd[0].revents & POLLIN) // means we got something to read
         {
             bzero(timer, 20);
             read(pfd[0].fd, timer, 20);
@@ -212,16 +221,21 @@ int ipv4_udp_receiver(char *IP, char *port, int sock)
         }
         else if (pfd[1].revents & POLLIN)
         {
-            // current_size += read(pfd[1].fd, buffer, SIZE_OF_FILE);
-            printf("here\n");
-            ssize_t num_bytes_received = recvfrom(server_socket, buffer, SIZE_OF_FILE, 0, (struct sockaddr *)&server_addr, &client_addr_len);
-            if (num_bytes_received == 0)
+            uint8_t temp[1500];
+            bzero(temp, 1500);
+            socklen_t serverAddrLen = sizeof(server_addr);
+            ssize_t received = recvfrom(server_socket, temp, sizeof(temp), 0, (struct sockaddr *)&server_addr, &serverAddrLen);
+            if (received < 0)
             {
-                printf("i am here");
-                break;
+                perror("Failed to receive data");
+                exit(1);
             }
+            memcpy(buffer + totalReceived, temp, received);
+            totalReceived += received;
+            remaining -= received;
         }
     }
+
     hash_2(buffer, SIZE_OF_FILE);
     free(buffer);
     close(server_socket);

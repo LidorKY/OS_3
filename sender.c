@@ -108,7 +108,6 @@ int ipv4_tcp_sender(char *IP, char *PORT, int sock)
         }
         totalSent += sent;
         remaining -= sent;
-        // printf("Sent %zu bytes (%.2f%%)\n", totalSent, (float)totalSent / SIZE_OF_FILE * 100);
     }
     end = clock();
     cpu_time_used = (double)(end - start) / (CLOCKS_PER_SEC / 1000);
@@ -152,21 +151,21 @@ int ipv4_udp_sender(char *IP, char *PORT, int sock)
         perror("error in sending the start time.");
         exit(1);
     }
-    size_t bytes_sent = 0;
-    size_t remaining_bytes = SIZE_OF_FILE;
+    ssize_t temp = 0;
+    size_t totalSent = 0;
+    size_t remaining = SIZE_OF_FILE;
     start = clock();
-    while (remaining_bytes > 0)
+    while (remaining > 0)
     {
-        size_t chunk_size = (remaining_bytes > 60000) ? 60000 : remaining_bytes;
-        ssize_t num_bytes_sent = sendto(client_socket, sendme, chunk_size, 0, (struct sockaddr *)&server_addr, sizeof(server_addr));
-        if (num_bytes_sent < 0)
+        size_t chunkSize = (remaining < 1500) ? remaining : 1500;
+        ssize_t sent = sendto(client_socket, sendme + totalSent, chunkSize, 0, (struct sockaddr *)&server_addr, sizeof(server_addr));
+        if (sent < 0)
         {
-            perror("Error sending data");
+            perror("Failed to send data");
             exit(1);
         }
-        bytes_sent += num_bytes_sent;
-        remaining_bytes -= num_bytes_sent;
-        sendme += num_bytes_sent;
+        totalSent += sent;
+        remaining -= sent;
     }
     end = clock();
     if (send(sock, "finish_time", 12, 0) == -1) // send the time we have finished to send the file in the socket -"sender_socket"
@@ -174,7 +173,7 @@ int ipv4_udp_sender(char *IP, char *PORT, int sock)
         perror("error in sending the start time.");
         exit(1);
     }
-    printf("Sent %zu bytes\n", bytes_sent);
+    printf("Sent %zu bytes\n", totalSent);
     cpu_time_used = (double)(end - start) / (CLOCKS_PER_SEC / 1000);
     printf(",%f\n", cpu_time_used);
     sleep(10);
