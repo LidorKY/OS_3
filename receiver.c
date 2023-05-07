@@ -91,7 +91,6 @@ int ipv4_tcp_receiver(char *IP, char *port, int sock)
     client_socket = accept(receiver_socket, (struct sockaddr *)&new_addr, &addr_size); // the func return socket discriptor of a new
     // socket and information of the Sender like IP and Port into new_addr.
     //---------------------------------------------------------------------------------
-
     int n;
     pfd[0].fd = sock; // from input;
     pfd[0].events = POLLIN;
@@ -99,11 +98,11 @@ int ipv4_tcp_receiver(char *IP, char *port, int sock)
     pfd[1].fd = client_socket; // from socket;
     pfd[1].events = POLLIN;
     pfd[1].revents = 0;
-
     uint8_t *buffer = (uint8_t *)calloc(SIZE_OF_FILE, sizeof(uint8_t));
     char timer[20];
     int counter = 0;
-    size_t current_size = 0;
+    size_t totalReceived = 0;
+    size_t remaining = SIZE_OF_FILE;
     while (1)
     {
         n = poll(pfd, 2, 5000);
@@ -117,9 +116,9 @@ int ipv4_tcp_receiver(char *IP, char *port, int sock)
             printf("timeout...\n");
             break;
         }
-        if (current_size >= SIZE_OF_FILE && counter >= 2)
+        if (totalReceived == SIZE_OF_FILE && counter >= 2)
         {
-            printf("the size: %zu\n", current_size);
+            printf("the size: %zu\n", totalReceived);
             hash_2(buffer, SIZE_OF_FILE);
             free(buffer);
             close(client_socket);
@@ -136,9 +135,23 @@ int ipv4_tcp_receiver(char *IP, char *port, int sock)
         }
         else if (pfd[1].revents & POLLIN)
         {
-            current_size += read(pfd[1].fd, buffer, SIZE_OF_FILE);
+            uint8_t temp[60000];
+            bzero(temp, 60000);
+            size_t chunkSize = (remaining < 60000) ? remaining : 60000;
+            ssize_t received = recv(client_socket, temp, chunkSize, 0);
+            if (received < 0)
+            {
+                perror("Failed to receive data");
+                exit(1);
+            }
+            memcpy(buffer + totalReceived, temp, received);
+            totalReceived += received;
+            remaining -= received;
         }
     }
+
+    hash_2(buffer, SIZE_OF_FILE);
+    free(buffer);
     close(client_socket);
     close(receiver_socket);
     return 0;
@@ -209,7 +222,6 @@ int ipv4_udp_receiver(char *IP, char *port, int sock)
             }
         }
     }
-    // add hash here.
     hash_2(buffer, SIZE_OF_FILE);
     free(buffer);
     close(server_socket);

@@ -94,16 +94,26 @@ int ipv4_tcp_sender(char *IP, char *PORT, int sock)
         exit(1);
     }
     ssize_t temp = 0;
+    size_t totalSent = 0;
+    size_t remaining = SIZE_OF_FILE;
     start = clock();
-    if ((temp = send(ipv4_tcp_socket, sendme, SIZE_OF_FILE, 0)) == -1) // sendng the actual file.
+    while (remaining > 0)
     {
-        perror("error in sending the file.");
-        exit(1);
+        size_t chunkSize = (remaining < 60000) ? remaining : 60000;
+        ssize_t sent = send(ipv4_tcp_socket, sendme + totalSent, chunkSize, 0);
+        if (sent < 0)
+        {
+            perror("Failed to send data");
+            exit(1);
+        }
+        totalSent += sent;
+        remaining -= sent;
+        // printf("Sent %zu bytes (%.2f%%)\n", totalSent, (float)totalSent / SIZE_OF_FILE * 100);
     }
     end = clock();
     cpu_time_used = (double)(end - start) / (CLOCKS_PER_SEC / 1000);
     printf(",%f\n", cpu_time_used);
-    printf("the size: %zd\n", temp);
+    printf("the size: %zd\n", totalSent);
     close(ipv4_tcp_socket);
     free(sendme);
     if (send(sock, "finish_time", 12, 0) == -1) // send the time we have finished to send the file in the socket -"sender_socket"
@@ -111,6 +121,7 @@ int ipv4_tcp_sender(char *IP, char *PORT, int sock)
         perror("error in sending the start time.");
         exit(1);
     }
+    close(sock);
     return 0;
 }
 
@@ -144,10 +155,12 @@ int ipv4_udp_sender(char *IP, char *PORT, int sock)
     size_t bytes_sent = 0;
     size_t remaining_bytes = SIZE_OF_FILE;
     start = clock();
-    while (remaining_bytes > 0) {
+    while (remaining_bytes > 0)
+    {
         size_t chunk_size = (remaining_bytes > 60000) ? 60000 : remaining_bytes;
-        ssize_t num_bytes_sent = sendto(client_socket, sendme, chunk_size, 0, (struct sockaddr*)&server_addr, sizeof(server_addr));
-        if (num_bytes_sent < 0) {
+        ssize_t num_bytes_sent = sendto(client_socket, sendme, chunk_size, 0, (struct sockaddr *)&server_addr, sizeof(server_addr));
+        if (num_bytes_sent < 0)
+        {
             perror("Error sending data");
             exit(1);
         }
