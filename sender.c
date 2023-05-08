@@ -13,6 +13,7 @@
 #include <string.h>
 #include <openssl/md5.h>
 #include <time.h>
+#include <openssl/evp.h>
 #include "sender.h"
 #define SIZE_OF_FILE 101260000
 
@@ -21,7 +22,7 @@ uint8_t *generate()
     uint8_t *array = (uint8_t *)calloc(SIZE_OF_FILE, sizeof(uint8_t));
     if (array == NULL)
     {
-        return -1;
+        return NULL;
     }
     srand(time(NULL));
     for (uint32_t i = 0; i < SIZE_OF_FILE; i++)
@@ -34,16 +35,24 @@ uint8_t *generate()
 void hash_1(uint8_t *array, size_t array_size)
 {
     unsigned char hash[MD5_DIGEST_LENGTH];
-    MD5_CTX context;
+    EVP_MD_CTX *context = EVP_MD_CTX_new();
 
     // Initialize the MD5 context
-    MD5_Init(&context);
+#ifdef _OPENSSL_API_COMPAT
+    EVP_MD_CTX_init(context);
+#else
+    EVP_DigestInit_ex(context, EVP_md5(), NULL);
+#endif
 
     // Update the hash context with the array data
-    MD5_Update(&context, array, array_size);
+    EVP_DigestUpdate(context, array, array_size);
 
     // Finalize the hash and store the result in the 'hash' buffer
-    MD5_Final(hash, &context);
+#ifdef _OPENSSL_API_COMPAT
+    EVP_MD_CTX_finish(context, hash);
+#else
+    EVP_DigestFinal_ex(context, hash, NULL);
+#endif
 
     // Print the resulting hash
     for (int i = 0; i < MD5_DIGEST_LENGTH; ++i)
@@ -51,7 +60,10 @@ void hash_1(uint8_t *array, size_t array_size)
         printf("%02x", hash[i]);
     }
     printf("\n");
+
+    EVP_MD_CTX_free(context);
 }
+
 
 int ipv4_tcp_sender(char *IP, char *PORT, int sock)
 {
@@ -94,7 +106,7 @@ int ipv4_tcp_sender(char *IP, char *PORT, int sock)
         perror("error in sending the start time.");
         exit(1);
     }
-    ssize_t temp = 0;
+    // ssize_t temp = 0;
     size_t totalSent = 0;
     size_t remaining = SIZE_OF_FILE;
     start = clock();
@@ -152,7 +164,7 @@ int ipv4_udp_sender(char *IP, char *PORT, int sock)
         perror("error in sending the start time.");
         exit(1);
     }
-    ssize_t temp = 0;
+    // ssize_t temp = 0;
     size_t totalSent = 0;
     size_t remaining = SIZE_OF_FILE;
     start = clock();
@@ -223,7 +235,7 @@ int ipv6_tcp_sender(char *IP, char *PORT, int sock)
         perror("error in sending the start time.");
         exit(1);
     }
-    ssize_t temp = 0;
+    // ssize_t temp = 0;
     size_t totalSent = 0;
     size_t remaining = SIZE_OF_FILE;
     start = clock();
@@ -281,7 +293,7 @@ int ipv6_udp_sender(char *IP, char *PORT, int sock)//noder without gpt
         perror("error in sending the start time.");
         exit(1);
     }
-    ssize_t temp = 0;
+    // ssize_t temp = 0;
     size_t totalSent = 0;
     size_t remaining = SIZE_OF_FILE;
     start = clock();

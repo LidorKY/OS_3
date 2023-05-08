@@ -14,29 +14,37 @@
 #include <stdlib.h>
 #include <string.h>
 #include <openssl/md5.h>
+#include <openssl/evp.h>
+#include "receiver.h"
 #define SIZE_OF_FILE 101260000
+
+#include <openssl/evp.h>
 
 void hash_2(uint8_t *array, size_t array_size)
 {
-    unsigned char hash[MD5_DIGEST_LENGTH];
-    MD5_CTX context;
+    EVP_MD_CTX *md_ctx = EVP_MD_CTX_new();
+    unsigned char hash[EVP_MAX_MD_SIZE];
+    unsigned int hash_len = 0;
 
     // Initialize the MD5 context
-    MD5_Init(&context);
+    EVP_DigestInit(md_ctx, EVP_md5());
 
     // Update the hash context with the array data
-    MD5_Update(&context, array, array_size);
+    EVP_DigestUpdate(md_ctx, array, array_size);
 
     // Finalize the hash and store the result in the 'hash' buffer
-    MD5_Final(hash, &context);
+    EVP_DigestFinal(md_ctx, hash, &hash_len);
 
     // Print the resulting hash
-    for (int i = 0; i < MD5_DIGEST_LENGTH; ++i)
+    for (int i = 0; i < hash_len; ++i)
     {
         printf("%02x", hash[i]);
     }
     printf("\n");
+
+    EVP_MD_CTX_free(md_ctx);
 }
+
 
 int ipv4_tcp_receiver(char *IP, char *port, int sock)
 {
@@ -175,8 +183,8 @@ int ipv4_udp_receiver(char *IP, char *port, int sock)
         perror("Error binding socket");
         exit(EXIT_FAILURE);
     }
-    int client_addr_len = sizeof(server_addr);
-    size_t current_size = 0;
+    // int client_addr_len = sizeof(server_addr);
+    // size_t current_size = 0;
     int n;
     pfd[0].fd = sock; // from input;
     pfd[0].events = POLLIN;
@@ -187,7 +195,7 @@ int ipv4_udp_receiver(char *IP, char *port, int sock)
     char timer[20];
     uint8_t *buffer = (uint8_t *)calloc(SIZE_OF_FILE, sizeof(uint8_t));
     int counter = 0;
-    ssize_t received = 0;
+    // ssize_t received = 0;
     size_t totalReceived = 0;
     size_t remaining = SIZE_OF_FILE;
     while (1)
@@ -380,8 +388,8 @@ int ipv6_udp_receiver(char *IP, char *port, int sock)
         perror("Error binding socket");
         exit(EXIT_FAILURE);
     }
-    int client_addr_len = sizeof(server_addr);
-    size_t current_size = 0;
+    // int client_addr_len = sizeof(server_addr);
+    // size_t current_size = 0;
     int n;
     pfd[0].fd = sock; // from input;
     pfd[0].events = POLLIN;
@@ -392,7 +400,7 @@ int ipv6_udp_receiver(char *IP, char *port, int sock)
     char timer[20];
     uint8_t *buffer = (uint8_t *)calloc(SIZE_OF_FILE, sizeof(uint8_t));
     int counter = 0;
-    ssize_t received = 0;
+    // ssize_t received = 0;
     size_t totalReceived = 0;
     size_t remaining = SIZE_OF_FILE;
     while (1)
@@ -450,7 +458,7 @@ int ipv6_udp_receiver(char *IP, char *port, int sock)
 int receiver(char *PORT)
 {
 
-    struct pollfd pfd[2];
+    // struct pollfd pfd[2];
 
     // creating a socket
     int receiver_socket;
