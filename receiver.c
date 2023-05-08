@@ -13,8 +13,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <fcntl.h>
+#include <sys/mman.h>
 #include <openssl/md5.h>
 #include <openssl/evp.h>
+#include <arpa/inet.h>
+#include <sys/socket.h>
 #include "receiver.h"
 #define SIZE_OF_FILE 101260000
 
@@ -44,7 +48,6 @@ void hash_2(uint8_t *array, size_t array_size)
 
     EVP_MD_CTX_free(md_ctx);
 }
-
 
 int ipv4_tcp_receiver(char *IP, char *port, int sock)
 {
@@ -341,7 +344,7 @@ int ipv6_tcp_receiver(char *IP, char *port, int sock)
         {
             bzero(timer, 20);
             read(pfd[0].fd, timer, 20);
-            sleep(0.5);//without this sleep it does'nt work.
+            sleep(0.5); // without this sleep it does'nt work.
             printf("got: %s", timer);
             printf("\n");
             counter++;
@@ -455,6 +458,59 @@ int ipv6_udp_receiver(char *IP, char *port, int sock)
     return 0;
 }
 
+int mmap_receiver(char *file_name)
+{
+    int fd;
+    char *mapped_file;
+    struct stat st;
+    uint8_t *data;
+    size_t data_size;
+
+    // open the file received from the sender
+    fd = open(file_name, O_RDONLY);
+    if (fd < 0)
+    {
+        perror("open");
+        exit(EXIT_FAILURE);
+    }
+
+    // get the size of the file
+    if (fstat(fd, &st) < 0)
+    {
+        perror("fstat");
+        exit(EXIT_FAILURE);
+    }
+
+    data_size = st.st_size;
+
+    // map the file to the process address space
+    mapped_file = mmap(NULL, data_size, PROT_READ, MAP_SHARED, fd, 0);
+    if (mapped_file == MAP_FAILED)
+    {
+        perror("mmap");
+        exit(EXIT_FAILURE);
+    }
+
+    // copy the data from the mapped memory to a new buffer
+    data = malloc(data_size);
+    memcpy(data, mapped_file, data_size);
+
+    // apply hash function to the data
+    hash_2(data, data_size);
+
+    // unmap the memory
+    if (munmap(mapped_file, data_size) < 0)
+    {
+        perror("munmap");
+        exit(EXIT_FAILURE);
+    }
+
+    // close the file
+    close(fd);
+
+    return 0;
+}
+
 int receiver(char *PORT)
 {
 
@@ -550,7 +606,10 @@ int receiver(char *PORT)
     {
         ipv6_udp_receiver(IP, port, client_socket);
     }
-
+    else if(strcmp(TYPE, "mmap") == 0)
+    {
+        mmap_receiver(PARAM);
+    }
     // receive the initial time in socket - "client_socket".
     // receiving the file in the secondry socket - must to use poll here - only because arkady said so.
     // receiving finish time

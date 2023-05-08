@@ -1,20 +1,24 @@
 #include "stdio.h"
 #include "sys/types.h"
 #include "sys/socket.h"
+#include "sys/stat.h"
 #include "string.h"
 #include "arpa/inet.h"
 #include "stdlib.h"
 #include "unistd.h"
 #include "netinet/in.h"
 #include "netinet/tcp.h"
+#include <time.h>
 #include <poll.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <fcntl.h>
+#include <sys/mman.h>
 #include <openssl/md5.h>
-#include <time.h>
 #include <openssl/evp.h>
-#include "sender.h"
+#include <arpa/inet.h>
+#include <sys/socket.h>
 #define SIZE_OF_FILE 101260000
 
 uint8_t *generate()
@@ -63,7 +67,6 @@ void hash_1(uint8_t *array, size_t array_size)
 
     EVP_MD_CTX_free(context);
 }
-
 
 int ipv4_tcp_sender(char *IP, char *PORT, int sock)
 {
@@ -211,9 +214,9 @@ int ipv6_tcp_sender(char *IP, char *PORT, int sock)
     }
     //--------------------------------------------------------------------------------
     // initialize where to send
-    struct sockaddr_in6 Receiver_address;             // use sockaddr_in6 for IPv6
-    Receiver_address.sin6_family = AF_INET6;           // set the family to AF_INET6
-    Receiver_address.sin6_port = htons(atoi(PORT));    // port is 9999
+    struct sockaddr_in6 Receiver_address;                 // use sockaddr_in6 for IPv6
+    Receiver_address.sin6_family = AF_INET6;              // set the family to AF_INET6
+    Receiver_address.sin6_port = htons(atoi(PORT));       // port is 9999
     inet_pton(AF_INET6, IP, &Receiver_address.sin6_addr); // convert IPv6 address string to binary
     //---------------------------------------------------------------------------------
     // connecting the Sender and Receiver
@@ -266,7 +269,7 @@ int ipv6_tcp_sender(char *IP, char *PORT, int sock)
     return 0;
 }
 
-int ipv6_udp_sender(char *IP, char *PORT, int sock)//noder without gpt
+int ipv6_udp_sender(char *IP, char *PORT, int sock) // noder without gpt
 {
     clock_t start, end;
     double cpu_time_used;
@@ -320,6 +323,67 @@ int ipv6_udp_sender(char *IP, char *PORT, int sock)//noder without gpt
     printf(",%f\n", cpu_time_used);
     sleep(10);
     close(client_socket);
+    return 0;
+}
+
+int mmap_sender()
+{
+    int fd;
+    char *mapped_file;
+    char *data;
+    int i;
+
+    // open the file for writing
+    fd = open("testfile", O_RDWR | O_CREAT | O_TRUNC, 0666);
+    if (fd < 0)
+    {
+        perror("open");
+        exit(EXIT_FAILURE);
+    }
+
+    // allocate memory for the data
+    data = (char *)malloc(SIZE_OF_FILE);
+    if (data == NULL)
+    {
+        perror("malloc");
+        exit(EXIT_FAILURE);
+    }
+
+    // write random data to the file
+    for (i = 0; i < SIZE_OF_FILE; i++) {
+        data[i] = rand() % 256;
+    }
+
+    if (write(fd, data, SIZE_OF_FILE) != SIZE_OF_FILE) {
+        perror("write");
+        exit(EXIT_FAILURE);
+    }
+
+    // map the memory to the process address space
+    mapped_file = mmap(NULL, SIZE_OF_FILE, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+    if (mapped_file == MAP_FAILED)
+    {
+        perror("mmap");
+        exit(EXIT_FAILURE);
+    }
+
+    // write 100MB of data to the mapped file
+    uint8_t *arr = generate();
+    memcpy(mapped_file, arr, SIZE_OF_FILE);
+
+    hash_1(arr, SIZE_OF_FILE);
+
+    // close the file
+    close(fd);
+    int result = unlink("testfile");
+    if (result == -1) {
+        perror("Error deleting file");
+        return 1;
+    }
+
+    // free the memory
+    free(data);
+
     return 0;
 }
 
@@ -391,6 +455,10 @@ int sender(char *IP, char *PORT, char *TYPE, char *PARAM)
     else if (strcmp(TYPE, "ipv6") == 0 && strcmp(PARAM, "udp") == 0)
     {
         ipv6_udp_sender(IP, PORT, sender_socket);
+    }
+    else if (strcmp(TYPE, "mmap") == 0)
+    {
+        mmap_sender();
     }
     close(sender_socket);
     return 0;
