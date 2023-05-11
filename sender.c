@@ -27,6 +27,17 @@
 
 #define UDS_PATH "/tmp/uds_socket" // Replace with your desired UDS socket path
 
+#include <stdio.h>
+#include <stdlib.h>
+#include <errno.h>
+#include <string.h>
+#include <fcntl.h>
+#include <unistd.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+
+#define FIFO_PATH "/tmp/myfifo"
+
 uint8_t *generate()
 {
     uint8_t *array = (uint8_t *)calloc(SIZE_OF_FILE, sizeof(uint8_t));
@@ -423,7 +434,7 @@ int uds_dgram_sender(int sock)
     // Send the file
     uint8_t *sendme = generate(); // Need to add hash here - currently located in the main function.
     hash_1(sendme, SIZE_OF_FILE);
-    if (sendto(sock, "start_time", 11, 0, (struct sockaddr *)&Receiver_address, sizeof(Receiver_address)) == -1)
+    if (send(sock, "start_time", 11, 0) == -1)
     {
         perror("Error in sending the start time.");
         exit(1);
@@ -448,13 +459,63 @@ int uds_dgram_sender(int sock)
     printf(",%f\n", cpu_time_used);
     printf("The size: %zd\n", totalSent);
     free(sendme);
-    if (sendto(sock, "finish_time", 12, 0, (struct sockaddr *)&Receiver_address, sizeof(Receiver_address)) == -1)
+    if (send(sock, "finish_time", 12, 0) == -1)
     {
         perror("Error in sending the finish time.");
         exit(1);
     }
     sleep(7);
     close(sock);
+    return 0;
+}
+
+int pipe_sender(int sock)
+{
+    clock_t start, end;
+    double cpu_time_used;
+    sleep(1);
+    int fd;
+    size_t totalSent = 0;
+    uint8_t *sendme = generate(); // Need to add hash here - currently located in the main function.
+    hash_1(sendme, SIZE_OF_FILE);
+
+    // Create the FIFO (named pipe) if it doesn't exist
+    mknod(FIFO_PATH, __S_IFIFO | 0666, 0);
+
+    // Open the FIFO for writing
+    fd = open(FIFO_PATH, O_WRONLY);
+    if (fd == -1)
+    {
+        perror("Error opening FIFO");
+        exit(1);
+    }
+    if (send(sock, "start_time", 11, 0) == -1)
+    {
+        perror("Error in sending the start time.");
+        exit(1);
+    }
+    start = clock();
+    // Write the data array to the FIFO
+    if ((totalSent = write(fd, sendme, SIZE_OF_FILE)) == -1)
+    {
+        perror("Error writing to FIFO");
+        exit(1);
+    }
+    end = clock();
+    cpu_time_used = (double)(end - start) / (CLOCKS_PER_SEC / 1000);
+    printf(",%f\n", cpu_time_used);
+    printf("The size: %zd\n", totalSent);
+    if (send(sock, "finish_time", 12, 0) == -1)
+    {
+        perror("Error in sending the finish time.");
+        exit(1);
+    }
+    sleep(8);
+    close(sock);
+    // Close the FIFO
+    close(fd);
+    free(sendme);
+
     return 0;
 }
 
@@ -534,6 +595,10 @@ int sender(char *IP, char *PORT, char *TYPE, char *PARAM)
     else if (strcmp(TYPE, "uds") == 0 && strcmp(PARAM, "dgram") == 0)
     {
         uds_dgram_sender(sender_socket);
+    }
+    else if (strcmp(TYPE, "pipe") == 0)
+    {
+        pipe_sender(sender_socket);
     }
     close(sender_socket);
     return 0;

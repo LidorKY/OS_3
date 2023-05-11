@@ -30,6 +30,17 @@
 
 #include <openssl/evp.h>
 
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <fcntl.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <string.h>
+#include <poll.h>
+
+#define FIFO_PATH "/tmp/myfifo"
+
 void hash_2(uint8_t *array, size_t array_size)
 {
     EVP_MD_CTX *md_ctx = EVP_MD_CTX_new();
@@ -684,6 +695,83 @@ int uds_dgram_receiver(int sock)
     return 0;
 }
 
+int pipe_receiver(int sock)
+{
+    struct pollfd pfd[2];
+    int fifo_fd;
+
+    // Create the FIFO (named pipe) if it doesn't exist
+    mknod(FIFO_PATH, __S_IFIFO | 0666, 0);
+
+    fifo_fd = open(FIFO_PATH, O_RDONLY);
+    if (fifo_fd == -1)
+    {
+        perror("Error opening FIFO");
+        exit(1);
+    }
+
+    int n;
+    pfd[0].fd = sock;
+    pfd[0].events = POLLIN;
+    pfd[0].revents = 0;
+    pfd[1].fd = fifo_fd;
+    pfd[1].events = POLLIN;
+    pfd[1].revents = 0;
+
+    uint8_t *buffer = (uint8_t *)calloc(SIZE_OF_FILE, sizeof(uint8_t));
+    int counter = 0;
+    size_t totalReceived = 0;
+    size_t remaining = SIZE_OF_FILE;
+
+    while (1)
+    {
+        n = poll(pfd, 2, 5000);
+        if (n < 0)
+        {
+            printf("error on poll\n");
+            continue;
+        }
+        if (n == 0)
+        {
+            printf("timeout...\n");
+            break;
+        }
+        if (totalReceived == SIZE_OF_FILE)
+        {
+            printf("the size: %zu\n", totalReceived);
+            hash_2(buffer, SIZE_OF_FILE);
+            free(buffer);
+            close(fifo_fd);
+            close(sock);
+            return 0;
+        }
+        else if (pfd[0].revents & POLLIN)
+        {
+            char timer[20];
+            memset(timer, 0, sizeof(timer));
+            read(pfd[0].fd, timer, sizeof(timer) - 1);
+            printf("got: %s\n", timer);
+            counter++;
+        }
+        else if (pfd[1].revents & POLLIN)
+        {
+            ssize_t received = read(pfd[1].fd, buffer + totalReceived, remaining);
+            if (received < 0)
+            {
+                perror("Failed to receive data");
+                exit(1);
+            }
+            totalReceived += received;
+            remaining -= received;
+        }
+    }
+    hash_2(buffer, SIZE_OF_FILE);
+    free(buffer);
+    close(fifo_fd);
+    close(sock);
+    return 0;
+}
+
 int receiver(char *PORT)
 {
     // creating a socket
@@ -783,6 +871,10 @@ int receiver(char *PORT)
     else if (strcmp(TYPE, "uds") == 0 && strcmp(PARAM, "dgram") == 0)
     {
         uds_dgram_receiver(client_socket);
+    }
+    else if (strcmp(TYPE, "pipe") == 0)
+    {
+        pipe_receiver(client_socket);
     }
 
     // receive the initial time in socket - "client_socket".
