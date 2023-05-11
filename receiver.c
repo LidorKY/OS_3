@@ -488,6 +488,7 @@ int mmap_receiver(char *file_name)
     if (mapped_file == MAP_FAILED)
     {
         perror("mmap");
+        close(fd);
         exit(EXIT_FAILURE);
     }
 
@@ -510,6 +511,7 @@ int mmap_receiver(char *file_name)
 
     return 0;
 }
+
 
 int receiver(char *PORT)
 {

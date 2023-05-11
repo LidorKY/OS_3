@@ -334,7 +334,7 @@ int mmap_sender()
     int i;
 
     // open the file for writing
-    fd = open("testfile", O_RDWR | O_CREAT | O_TRUNC, 0666);
+    fd = open("file.txt", O_RDWR | O_CREAT | O_TRUNC, 0666);
     if (fd < 0)
     {
         perror("open");
@@ -370,22 +370,24 @@ int mmap_sender()
     // write 100MB of data to the mapped file
     uint8_t *arr = generate();
     memcpy(mapped_file, arr, SIZE_OF_FILE);
-
+    // printf("arr= %s\n",arr);
     hash_1(arr, SIZE_OF_FILE);
 
     // close the file
     close(fd);
-    int result = unlink("testfile");
-    if (result == -1) {
-        perror("Error deleting file");
-        return 1;
-    }
+    // int result = unlink("file.txt");
+    // if (result == -1) {
+    //     perror("Error deleting file");
+    //     return 1;
+    // }
 
     // free the memory
     free(data);
 
     return 0;
 }
+
+
 
 int sender(char *IP, char *PORT, char *TYPE, char *PARAM)
 {
