@@ -16,7 +16,6 @@
 #include <openssl/md5.h>
 #include <openssl/evp.h>
 #include "receiver.h"
-#define SIZE_OF_FILE 101260000
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -26,7 +25,8 @@
 #include <unistd.h>
 #include <string.h>
 
-#define UDS_PATH "/tmp/uds_socket3" // Replace with your desired UDS socket path
+#define SIZE_OF_FILE 101260000
+#define UDS_PATH "/tmp/uds_socket" // Replace with your desired UDS socket path
 
 #include <openssl/evp.h>
 
@@ -588,7 +588,7 @@ int uds_stream_receiver(int sock)
 
 int uds_dgram_receiver(int sock)
 {
-    struct pollfd pfd[1];
+    struct pollfd pfd[2];
     int receiver_socket;
     receiver_socket = socket(AF_UNIX, SOCK_DGRAM, 0);
     if (receiver_socket == -1)
@@ -632,7 +632,7 @@ int uds_dgram_receiver(int sock)
     size_t remaining = SIZE_OF_FILE;
     while (1)
     {
-        n = poll(pfd, 1, 5000);
+        n = poll(pfd, 2, 5000);
         if (n < 0)
         {
             printf("error on poll\n");
@@ -641,9 +641,11 @@ int uds_dgram_receiver(int sock)
         if (n == 0)
         {
             printf("timeout...\n");
+            printf("the size: %zu\n", totalReceived);
+            printf("counter: %d\n", counter);
             break;
         }
-        if (totalReceived == SIZE_OF_FILE && counter >= 2)
+        if (totalReceived == SIZE_OF_FILE)
         {
             printf("the size: %zu\n", totalReceived);
             hash_2(buffer, SIZE_OF_FILE);
@@ -662,7 +664,7 @@ int uds_dgram_receiver(int sock)
         }
         else if (pfd[1].revents & POLLIN)
         {
-            uint8_t temp[60000];
+            uint8_t temp[1500];
             memset(temp, 0, sizeof(temp));
             size_t chunkSize = (remaining < sizeof(temp)) ? remaining : sizeof(temp);
             ssize_t received = recvfrom(receiver_socket, temp, chunkSize, 0, NULL, NULL);

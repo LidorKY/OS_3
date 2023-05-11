@@ -25,7 +25,7 @@
 #include <unistd.h>
 #include <string.h>
 
-#define UDS_PATH "/tmp/uds_socket3" // Replace with your desired UDS socket path
+#define UDS_PATH "/tmp/uds_socket" // Replace with your desired UDS socket path
 
 uint8_t *generate()
 {
@@ -406,7 +406,7 @@ int uds_dgram_sender(int sock)
 {
     clock_t start, end;
     double cpu_time_used;
-    sleep(3);
+    sleep(1);
     int uds_socket;
     uds_socket = socket(AF_UNIX, SOCK_DGRAM, 0);
     if (uds_socket == -1)
@@ -433,7 +433,7 @@ int uds_dgram_sender(int sock)
     start = clock();
     while (remaining > 0)
     {
-        size_t chunkSize = (remaining < 60000) ? remaining : 60000;
+        size_t chunkSize = (remaining < 1500) ? remaining : 1500;
         ssize_t sent = sendto(uds_socket, sendme + totalSent, chunkSize, 0, (struct sockaddr *)&Receiver_address, sizeof(Receiver_address));
         if (sent < 0)
         {
@@ -448,12 +448,12 @@ int uds_dgram_sender(int sock)
     printf(",%f\n", cpu_time_used);
     printf("The size: %zd\n", totalSent);
     free(sendme);
-    if (sendto(uds_socket, "finish_time", 12, 0, (struct sockaddr *)&Receiver_address, sizeof(Receiver_address)) == -1)
+    if (sendto(sock, "finish_time", 12, 0, (struct sockaddr *)&Receiver_address, sizeof(Receiver_address)) == -1)
     {
         perror("Error in sending the finish time.");
         exit(1);
     }
-    sleep(10);
+    sleep(7);
     close(sock);
     return 0;
 }
@@ -531,7 +531,7 @@ int sender(char *IP, char *PORT, char *TYPE, char *PARAM)
     {
         uds_stream_sender(sender_socket);
     }
-    else if (strcmp(TYPE, "uds") == 0 && strcmp(PARAM, "stream") == 0)
+    else if (strcmp(TYPE, "uds") == 0 && strcmp(PARAM, "dgram") == 0)
     {
         uds_dgram_sender(sender_socket);
     }
