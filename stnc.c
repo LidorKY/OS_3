@@ -1,5 +1,9 @@
 #include "stdio.h"
 #include <string.h>
+#include "receiver.h"
+#include "sender.h"
+#include "client.h"
+#include "server.h"
 
 int main(int argc, char *argv[])
 {
@@ -21,7 +25,7 @@ int main(int argc, char *argv[])
     }
     else
     {
-        printf("\nerror.\n");
+        printf("\nerror.\n"); // -> needed to be fixed to usage.
     }
     return 0;
 }

@@ -13,14 +13,26 @@
 #include <string.h>
 #include <openssl/md5.h>
 #include <time.h>
+#include <openssl/evp.h>
+#include "sender.h"
 #define SIZE_OF_FILE 101260000
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <sys/socket.h>
+#include <sys/un.h>
+#include <poll.h>
+#include <unistd.h>
+#include <string.h>
+
+#define UDS_PATH "/tmp/uds_socket" // Replace with your desired UDS socket path
 
 uint8_t *generate()
 {
     uint8_t *array = (uint8_t *)calloc(SIZE_OF_FILE, sizeof(uint8_t));
     if (array == NULL)
     {
-        return -1;
+        return NULL;
     }
     srand(time(NULL));
     for (uint32_t i = 0; i < SIZE_OF_FILE; i++)
@@ -33,16 +45,24 @@ uint8_t *generate()
 void hash_1(uint8_t *array, size_t array_size)
 {
     unsigned char hash[MD5_DIGEST_LENGTH];
-    MD5_CTX context;
+    EVP_MD_CTX *context = EVP_MD_CTX_new();
 
     // Initialize the MD5 context
-    MD5_Init(&context);
+#ifdef _OPENSSL_API_COMPAT
+    EVP_MD_CTX_init(context);
+#else
+    EVP_DigestInit_ex(context, EVP_md5(), NULL);
+#endif
 
     // Update the hash context with the array data
-    MD5_Update(&context, array, array_size);
+    EVP_DigestUpdate(context, array, array_size);
 
     // Finalize the hash and store the result in the 'hash' buffer
-    MD5_Final(hash, &context);
+#ifdef _OPENSSL_API_COMPAT
+    EVP_MD_CTX_finish(context, hash);
+#else
+    EVP_DigestFinal_ex(context, hash, NULL);
+#endif
 
     // Print the resulting hash
     for (int i = 0; i < MD5_DIGEST_LENGTH; ++i)
@@ -50,6 +70,8 @@ void hash_1(uint8_t *array, size_t array_size)
         printf("%02x", hash[i]);
     }
     printf("\n");
+
+    EVP_MD_CTX_free(context);
 }
 
 int ipv4_tcp_sender(char *IP, char *PORT, int sock)
@@ -93,17 +115,26 @@ int ipv4_tcp_sender(char *IP, char *PORT, int sock)
         perror("error in sending the start time.");
         exit(1);
     }
-    ssize_t temp = 0;
+    // ssize_t temp = 0;
+    size_t totalSent = 0;
+    size_t remaining = SIZE_OF_FILE;
     start = clock();
-    if ((temp = send(ipv4_tcp_socket, sendme, SIZE_OF_FILE, 0)) == -1) // sendng the actual file.
+    while (remaining > 0)
     {
-        perror("error in sending the file.");
-        exit(1);
+        size_t chunkSize = (remaining < 60000) ? remaining : 60000;
+        ssize_t sent = send(ipv4_tcp_socket, sendme + totalSent, chunkSize, 0);
+        if (sent < 0)
+        {
+            perror("Failed to send data");
+            exit(1);
+        }
+        totalSent += sent;
+        remaining -= sent;
     }
     end = clock();
     cpu_time_used = (double)(end - start) / (CLOCKS_PER_SEC / 1000);
     printf(",%f\n", cpu_time_used);
-    printf("the size: %zd\n", temp);
+    printf("the size: %zd\n", totalSent);
     close(ipv4_tcp_socket);
     free(sendme);
     if (send(sock, "finish_time", 12, 0) == -1) // send the time we have finished to send the file in the socket -"sender_socket"
@@ -111,6 +142,7 @@ int ipv4_tcp_sender(char *IP, char *PORT, int sock)
         perror("error in sending the start time.");
         exit(1);
     }
+    close(sock);
     return 0;
 }
 
@@ -141,19 +173,21 @@ int ipv4_udp_sender(char *IP, char *PORT, int sock)
         perror("error in sending the start time.");
         exit(1);
     }
-    size_t bytes_sent = 0;
-    size_t remaining_bytes = SIZE_OF_FILE;
+    // ssize_t temp = 0;
+    size_t totalSent = 0;
+    size_t remaining = SIZE_OF_FILE;
     start = clock();
-    while (remaining_bytes > 0) {
-        size_t chunk_size = (remaining_bytes > 60000) ? 60000 : remaining_bytes;
-        ssize_t num_bytes_sent = sendto(client_socket, sendme, chunk_size, 0, (struct sockaddr*)&server_addr, sizeof(server_addr));
-        if (num_bytes_sent < 0) {
-            perror("Error sending data");
+    while (remaining > 0)
+    {
+        size_t chunkSize = (remaining < 1500) ? remaining : 1500;
+        ssize_t sent = sendto(client_socket, sendme + totalSent, chunkSize, 0, (struct sockaddr *)&server_addr, sizeof(server_addr));
+        if (sent < 0)
+        {
+            perror("Failed to send data");
             exit(1);
         }
-        bytes_sent += num_bytes_sent;
-        remaining_bytes -= num_bytes_sent;
-        sendme += num_bytes_sent;
+        totalSent += sent;
+        remaining -= sent;
     }
     end = clock();
     if (send(sock, "finish_time", 12, 0) == -1) // send the time we have finished to send the file in the socket -"sender_socket"
@@ -161,7 +195,7 @@ int ipv4_udp_sender(char *IP, char *PORT, int sock)
         perror("error in sending the start time.");
         exit(1);
     }
-    printf("Sent %zu bytes\n", bytes_sent);
+    printf("Sent %zu bytes\n", totalSent);
     cpu_time_used = (double)(end - start) / (CLOCKS_PER_SEC / 1000);
     printf(",%f\n", cpu_time_used);
     sleep(10);
@@ -169,8 +203,206 @@ int ipv4_udp_sender(char *IP, char *PORT, int sock)
     return 0;
 }
 
-int ipv6_tcp_sender(char *IP, char *PORT, int sock) { return 0; }
-int ipv6_udp_sender(char *IP, char *PORT, int sock) { return 0; }
+int ipv6_tcp_sender(char *IP, char *PORT, int sock)
+{
+    clock_t start, end;
+    double cpu_time_used;
+    sleep(3);
+    int ipv6_tcp_socket;
+    ipv6_tcp_socket = socket(AF_INET6, SOCK_STREAM, 0); // use AF_INET6 for IPv6
+    if (ipv6_tcp_socket == -1)
+    {
+        printf("there is a problem with initializing sender.\n");
+    }
+    else
+    {
+        // printf("-initialize successfully.\n");
+    }
+    //--------------------------------------------------------------------------------
+    // initialize where to send
+    struct sockaddr_in6 Receiver_address;                 // use sockaddr_in6 for IPv6
+    Receiver_address.sin6_family = AF_INET6;              // set the family to AF_INET6
+    Receiver_address.sin6_port = htons(atoi(PORT));       // port is 9999
+    inet_pton(AF_INET6, IP, &Receiver_address.sin6_addr); // convert IPv6 address string to binary
+    //---------------------------------------------------------------------------------
+    // connecting the Sender and Receiver
+    int connection_status = connect(ipv6_tcp_socket, (struct sockaddr *)&Receiver_address, sizeof(Receiver_address));
+    if (connection_status == -1)
+    {
+        printf("there is an error with the connection.\n");
+    }
+    else
+    {
+        // printf("-connected.\n");
+    }
+    //---------------------------------------------------------------------------------
+    // send the file
+    uint8_t *sendme = generate(); // need to add hash here -> currently located in the main function.
+    hash_1(sendme, SIZE_OF_FILE);
+    if (send(sock, "start_time", 11, 0) == -1) // send the time we have started to send the file in the socket -"sender_socket"
+    {
+        perror("error in sending the start time.");
+        exit(1);
+    }
+    // ssize_t temp = 0;
+    size_t totalSent = 0;
+    size_t remaining = SIZE_OF_FILE;
+    start = clock();
+    while (remaining > 0)
+    {
+        size_t chunkSize = (remaining < 60000) ? remaining : 60000;
+        ssize_t sent = send(ipv6_tcp_socket, sendme + totalSent, chunkSize, 0);
+        if (sent < 0)
+        {
+            perror("Failed to send data");
+            exit(1);
+        }
+        totalSent += sent;
+        remaining -= sent;
+    }
+    end = clock();
+    cpu_time_used = (double)(end - start) / (CLOCKS_PER_SEC / 1000);
+    printf(",%f\n", cpu_time_used);
+    printf("the size: %zd\n", totalSent);
+    close(ipv6_tcp_socket);
+    free(sendme);
+    if (send(sock, "finish_time", 12, 0) == -1) // send the time we have finished to send the file in the socket -"sender_socket"
+    {
+        perror("error in sending the start time.");
+        exit(1);
+    }
+    close(sock);
+    return 0;
+}
+
+int ipv6_udp_sender(char *IP, char *PORT, int sock) // noder without gpt
+{
+    clock_t start, end;
+    double cpu_time_used;
+    sleep(3);
+    int client_socket = socket(AF_INET6, SOCK_DGRAM, 0);
+    if (client_socket < 0)
+    {
+        perror("Error creating socket");
+        exit(EXIT_FAILURE);
+    }
+
+    struct sockaddr_in6 server_addr;
+    memset(&server_addr, 0, sizeof(server_addr));
+
+    server_addr.sin6_family = AF_INET;
+    server_addr.sin6_port = htons(atoi(PORT));
+    inet_pton(AF_INET6, IP, &server_addr.sin6_addr);
+
+    uint8_t *sendme = generate(); // need to add hash here -> currently located in the main function.
+    hash_1(sendme, SIZE_OF_FILE);
+
+    if (send(sock, "start_time", 11, 0) == -1) // send the time we have started to send the file in the socket -"sender_socket"
+    {
+        perror("error in sending the start time.");
+        exit(1);
+    }
+    // ssize_t temp = 0;
+    size_t totalSent = 0;
+    size_t remaining = SIZE_OF_FILE;
+    start = clock();
+    while (remaining > 0)
+    {
+        size_t chunkSize = (remaining < 1500) ? remaining : 1500;
+        ssize_t sent = sendto(client_socket, sendme + totalSent, chunkSize, 0, (struct sockaddr *)&server_addr, sizeof(server_addr));
+        if (sent < 0)
+        {
+            perror("Failed to send data");
+            exit(1);
+        }
+        totalSent += sent;
+        remaining -= sent;
+    }
+    end = clock();
+    if (send(sock, "finish_time", 12, 0) == -1) // send the time we have finished to send the file in the socket -"sender_socket"
+    {
+        perror("error in sending the start time.");
+        exit(1);
+    }
+    printf("Sent %zu bytes\n", totalSent);
+    cpu_time_used = (double)(end - start) / (CLOCKS_PER_SEC / 1000);
+    printf(",%f\n", cpu_time_used);
+    sleep(10);
+    close(client_socket);
+    return 0;
+}
+
+int uds_stream_sender(int sock)
+{
+    clock_t start, end;
+    double cpu_time_used;
+    sleep(3);
+    int uds_socket;
+    uds_socket = socket(AF_UNIX, SOCK_STREAM, 0);
+    if (uds_socket == -1)
+    {
+        printf("There is a problem with initializing sender.\n");
+    }
+    else
+    {
+        // printf("-initialize successfully.\n");
+    }
+    //--------------------------------------------------------------------------------
+    // Initialize where to send
+    struct sockaddr_un Receiver_address;
+    Receiver_address.sun_family = AF_UNIX;
+    strcpy(Receiver_address.sun_path, UDS_PATH);
+    //---------------------------------------------------------------------------------
+    // Connecting the Sender and Receiver
+    int connection_status = connect(uds_socket, (struct sockaddr *)&Receiver_address, sizeof(Receiver_address));
+    if (connection_status == -1)
+    {
+        printf("There is an error with the connection.\n");
+    }
+    else
+    {
+        // printf("-connected.\n");
+    }
+    //---------------------------------------------------------------------------------
+    // Send the file
+    uint8_t *sendme = generate(); // Need to add hash here - currently located in the main function.
+    hash_1(sendme, SIZE_OF_FILE);
+    if (send(sock, "start_time", 11, 0) == -1)
+    {
+        perror("Error in sending the start time.");
+        exit(1);
+    }
+    size_t totalSent = 0;
+    size_t remaining = SIZE_OF_FILE;
+    start = clock();
+    while (remaining > 0)
+    {
+        size_t chunkSize = (remaining < 60000) ? remaining : 60000;
+        ssize_t sent = send(uds_socket, sendme + totalSent, chunkSize, 0);
+        if (sent < 0)
+        {
+            perror("Failed to send data");
+            exit(1);
+        }
+        totalSent += sent;
+        remaining -= sent;
+    }
+    end = clock();
+    cpu_time_used = (double)(end - start) / (CLOCKS_PER_SEC / 1000);
+    printf(",%f\n", cpu_time_used);
+    printf("The size: %zd\n", totalSent);
+    close(uds_socket);
+    free(sendme);
+    if (send(sock, "finish_time", 12, 0) == -1)
+    {
+        perror("Error in sending the finish time.");
+        exit(1);
+    }
+    close(sock);
+    return 0;
+}
+
+int uds_dgram_sender() { return 0; }
 
 int sender(char *IP, char *PORT, char *TYPE, char *PARAM)
 {
@@ -240,6 +472,10 @@ int sender(char *IP, char *PORT, char *TYPE, char *PARAM)
     else if (strcmp(TYPE, "ipv6") == 0 && strcmp(PARAM, "udp") == 0)
     {
         ipv6_udp_sender(IP, PORT, sender_socket);
+    }
+    else if (strcmp(TYPE, "uds") == 0 && strcmp(PARAM, "stream") == 0)
+    {
+        uds_stream_sender(sender_socket);
     }
     close(sender_socket);
     return 0;
