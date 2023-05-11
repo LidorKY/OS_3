@@ -25,7 +25,7 @@
 #include <unistd.h>
 #include <string.h>
 
-#define UDS_PATH "/tmp/uds_socket" // Replace with your desired UDS socket path
+#define UDS_PATH "/tmp/uds_socket3" // Replace with your desired UDS socket path
 
 uint8_t *generate()
 {
@@ -402,7 +402,61 @@ int uds_stream_sender(int sock)
     return 0;
 }
 
-int uds_dgram_sender() { return 0; }
+int uds_dgram_sender(int sock)
+{
+    clock_t start, end;
+    double cpu_time_used;
+    sleep(3);
+    int uds_socket;
+    uds_socket = socket(AF_UNIX, SOCK_DGRAM, 0);
+    if (uds_socket == -1)
+    {
+        printf("There is a problem with initializing sender.\n");
+        exit(1);
+    }
+    //--------------------------------------------------------------------------------
+    // Initialize where to send
+    struct sockaddr_un Receiver_address;
+    Receiver_address.sun_family = AF_UNIX;
+    strcpy(Receiver_address.sun_path, UDS_PATH);
+    //---------------------------------------------------------------------------------
+    // Send the file
+    uint8_t *sendme = generate(); // Need to add hash here - currently located in the main function.
+    hash_1(sendme, SIZE_OF_FILE);
+    if (sendto(sock, "start_time", 11, 0, (struct sockaddr *)&Receiver_address, sizeof(Receiver_address)) == -1)
+    {
+        perror("Error in sending the start time.");
+        exit(1);
+    }
+    size_t totalSent = 0;
+    size_t remaining = SIZE_OF_FILE;
+    start = clock();
+    while (remaining > 0)
+    {
+        size_t chunkSize = (remaining < 60000) ? remaining : 60000;
+        ssize_t sent = sendto(uds_socket, sendme + totalSent, chunkSize, 0, (struct sockaddr *)&Receiver_address, sizeof(Receiver_address));
+        if (sent < 0)
+        {
+            perror("Failed to send data");
+            exit(1);
+        }
+        totalSent += sent;
+        remaining -= sent;
+    }
+    end = clock();
+    cpu_time_used = (double)(end - start) / (CLOCKS_PER_SEC / 1000);
+    printf(",%f\n", cpu_time_used);
+    printf("The size: %zd\n", totalSent);
+    free(sendme);
+    if (sendto(uds_socket, "finish_time", 12, 0, (struct sockaddr *)&Receiver_address, sizeof(Receiver_address)) == -1)
+    {
+        perror("Error in sending the finish time.");
+        exit(1);
+    }
+    sleep(10);
+    close(sock);
+    return 0;
+}
 
 int sender(char *IP, char *PORT, char *TYPE, char *PARAM)
 {
@@ -476,6 +530,10 @@ int sender(char *IP, char *PORT, char *TYPE, char *PARAM)
     else if (strcmp(TYPE, "uds") == 0 && strcmp(PARAM, "stream") == 0)
     {
         uds_stream_sender(sender_socket);
+    }
+    else if (strcmp(TYPE, "uds") == 0 && strcmp(PARAM, "stream") == 0)
+    {
+        uds_dgram_sender(sender_socket);
     }
     close(sender_socket);
     return 0;

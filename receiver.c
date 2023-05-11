@@ -26,7 +26,7 @@
 #include <unistd.h>
 #include <string.h>
 
-#define UDS_PATH "/tmp/uds_socket" // Replace with your desired UDS socket path
+#define UDS_PATH "/tmp/uds_socket3" // Replace with your desired UDS socket path
 
 #include <openssl/evp.h>
 
@@ -485,6 +485,7 @@ int uds_stream_receiver(int sock)
     strncpy(receiver_address.sun_path, UDS_PATH, sizeof(receiver_address.sun_path) - 1);
     //---------------------------------------------------------------------------------
     // Binding the receiver socket
+    unlink(UDS_PATH);
     int bind_result = bind(receiver_socket, (struct sockaddr *)&receiver_address, sizeof(receiver_address));
     if (bind_result == -1)
     {
@@ -585,13 +586,104 @@ int uds_stream_receiver(int sock)
     return 0;
 }
 
-int uds_dgram_receiver() { return 0; }
+int uds_dgram_receiver(int sock)
+{
+    struct pollfd pfd[1];
+    int receiver_socket;
+    receiver_socket = socket(AF_UNIX, SOCK_DGRAM, 0);
+    if (receiver_socket == -1)
+    {
+        printf("- There is a problem with initializing receiver.\n");
+        exit(1);
+    }
+    else
+    {
+        printf("- Initialized successfully.\n");
+    }
+    //--------------------------------------------------------------------------------
+    // Initialize UDS socket address
+    struct sockaddr_un receiver_address;
+    receiver_address.sun_family = AF_UNIX;
+    strncpy(receiver_address.sun_path, UDS_PATH, sizeof(receiver_address.sun_path) - 1);
+    //---------------------------------------------------------------------------------
+    // Binding the receiver socket
+    unlink(UDS_PATH);
+    int bind_result = bind(receiver_socket, (struct sockaddr *)&receiver_address, sizeof(receiver_address));
+    if (bind_result == -1)
+    {
+        printf("- There is a problem with binding.\n");
+        exit(1);
+    }
+    else
+    {
+        printf("- Binding successfully.\n");
+    }
+    //---------------------------------------------------------------------------------
+    int n;
+    pfd[0].fd = sock; // from main socket;
+    pfd[0].events = POLLIN;
+    pfd[0].revents = 0;
+    pfd[1].fd = receiver_socket; // from socket;
+    pfd[1].events = POLLIN;
+    pfd[1].revents = 0;
+    uint8_t *buffer = (uint8_t *)calloc(SIZE_OF_FILE, sizeof(uint8_t));
+    int counter = 0;
+    size_t totalReceived = 0;
+    size_t remaining = SIZE_OF_FILE;
+    while (1)
+    {
+        n = poll(pfd, 1, 5000);
+        if (n < 0)
+        {
+            printf("error on poll\n");
+            continue;
+        }
+        if (n == 0)
+        {
+            printf("timeout...\n");
+            break;
+        }
+        if (totalReceived == SIZE_OF_FILE && counter >= 2)
+        {
+            printf("the size: %zu\n", totalReceived);
+            hash_2(buffer, SIZE_OF_FILE);
+            free(buffer);
+            // close(client_socket);
+            close(receiver_socket);
+            return 0;
+        }
+        else if (pfd[0].revents & POLLIN)
+        { // means we got something to read
+            char timer[20];
+            memset(timer, 0, sizeof(timer));
+            read(pfd[0].fd, timer, sizeof(timer) - 1);
+            printf("got: %s\n", timer);
+            counter++;
+        }
+        else if (pfd[1].revents & POLLIN)
+        {
+            uint8_t temp[60000];
+            memset(temp, 0, sizeof(temp));
+            size_t chunkSize = (remaining < sizeof(temp)) ? remaining : sizeof(temp);
+            ssize_t received = recvfrom(receiver_socket, temp, chunkSize, 0, NULL, NULL);
+            if (received < 0)
+            {
+                perror("Failed to receive data");
+                exit(1);
+            }
+            memcpy(buffer + totalReceived, temp, received);
+            totalReceived += received;
+            remaining -= received;
+        }
+    }
+    hash_2(buffer, SIZE_OF_FILE);
+    free(buffer);
+    close(receiver_socket);
+    return 0;
+}
 
 int receiver(char *PORT)
 {
-
-    // struct pollfd pfd[2];
-
     // creating a socket
     int receiver_socket;
     receiver_socket = socket(AF_INET, SOCK_STREAM, 0);
@@ -685,6 +777,10 @@ int receiver(char *PORT)
     else if (strcmp(TYPE, "uds") == 0 && strcmp(PARAM, "stream") == 0)
     {
         uds_stream_receiver(client_socket);
+    }
+    else if (strcmp(TYPE, "uds") == 0 && strcmp(PARAM, "dgram") == 0)
+    {
+        uds_dgram_receiver(client_socket);
     }
 
     // receive the initial time in socket - "client_socket".
