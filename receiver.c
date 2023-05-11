@@ -39,7 +39,6 @@
 #include <string.h>
 #include <poll.h>
 
-
 void hash_2(uint8_t *array, size_t array_size)
 {
     EVP_MD_CTX *md_ctx = EVP_MD_CTX_new();
@@ -694,11 +693,11 @@ int uds_dgram_receiver(int sock)
     return 0;
 }
 
-int pipe_receiver(char* filename, int sock)
+int pipe_receiver(char *filename, int sock)
 {
     struct pollfd pfd[2];
     int fifo_fd;
-
+    sleep(2);
     // Create the FIFO (named pipe) if it doesn't exist
     mknod(filename, __S_IFIFO | 0666, 0);
 
@@ -743,6 +742,7 @@ int pipe_receiver(char* filename, int sock)
             free(buffer);
             close(fifo_fd);
             close(sock);
+            unlink(filename);
             return 0;
         }
         else if (pfd[0].revents & POLLIN)
@@ -769,6 +769,7 @@ int pipe_receiver(char* filename, int sock)
     free(buffer);
     close(fifo_fd);
     close(sock);
+    unlink(filename);
     return 0;
 }
 
@@ -875,6 +876,9 @@ int receiver(char *PORT)
     else if (strcmp(TYPE, "pipe") == 0)
     {
         pipe_receiver(PARAM, client_socket);
+    }
+    else if (strcmp(TYPE, "mmap") == 0)
+    {
     }
 
     // receive the initial time in socket - "client_socket".

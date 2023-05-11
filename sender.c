@@ -36,6 +36,11 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 
+#include <stdio.h>
+#include <stdlib.h>
+#include <sys/mman.h>
+#include <fcntl.h>
+#include <unistd.h>
 
 uint8_t *generate()
 {
@@ -515,69 +520,8 @@ int pipe_sender(char *filename, int sock)
     close(sock);
     // Close the FIFO
     free(sendme);
-
     return 0;
 }
-
-// int mmap_sender(int sock)
-// {
-//     // Open a file to write the random data
-//     int fd = open("random_data.bin", O_RDWR | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR);
-//     if (fd == -1)
-//     {
-//         perror("Failed to open file");
-//         return 1;
-//     }
-
-//     // Extend the file to the desired size
-//     if (lseek(fd, DATA_SIZE - 1, SEEK_SET) == -1)
-//     {
-//         perror("Failed to extend file");
-//         close(fd);
-//         return 1;
-//     }
-//     if (write(fd, "", 1) == -1)
-//     {
-//         perror("Failed to write to file");
-//         close(fd);
-//         return 1;
-//     }
-
-//     // Map the file into memory
-//     char *data = mmap(NULL, DATA_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
-//     if (data == MAP_FAILED)
-//     {
-//         perror("Failed to map file");
-//         close(fd);
-//         return 1;
-//     }
-
-//     // Generate random data and fill the array
-//     for (int i = 0; i < DATA_SIZE; i++)
-//     {
-//         data[i] = rand() % 256;
-//     }
-
-//     // Print the first 10 elements of the array (for demonstration)
-//     for (int i = 0; i < 10; i++)
-//     {
-//         printf("%d ", data[i]);
-//     }
-//     printf("\n");
-
-//     // Unmap the file from memory
-//     if (munmap(data, DATA_SIZE) == -1)
-//     {
-//         perror("Failed to unmap file");
-//         close(fd);
-//         return 1;
-//     }
-
-//     // Close the file
-//     close(fd);
-
-//     return 0;
-// }
 
 int sender(char *IP, char *PORT, char *TYPE, char *PARAM)
 {
@@ -659,6 +603,9 @@ int sender(char *IP, char *PORT, char *TYPE, char *PARAM)
     else if (strcmp(TYPE, "pipe") == 0)
     {
         pipe_sender(PARAM, sender_socket);
+    }
+    else if (strcmp(TYPE, "mmap") == 0)
+    {
     }
     close(sender_socket);
     return 0;
