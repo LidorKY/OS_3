@@ -36,7 +36,6 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 
-#define FIFO_PATH "/tmp/myfifo"
 
 uint8_t *generate()
 {
@@ -455,6 +454,7 @@ int uds_dgram_sender(int sock)
         remaining -= sent;
     }
     end = clock();
+    close(uds_socket);
     cpu_time_used = (double)(end - start) / (CLOCKS_PER_SEC / 1000);
     printf(",%f\n", cpu_time_used);
     printf("The size: %zd\n", totalSent);
@@ -469,7 +469,7 @@ int uds_dgram_sender(int sock)
     return 0;
 }
 
-int pipe_sender(int sock)
+int pipe_sender(char *filename, int sock)
 {
     clock_t start, end;
     double cpu_time_used;
@@ -480,10 +480,10 @@ int pipe_sender(int sock)
     hash_1(sendme, SIZE_OF_FILE);
 
     // Create the FIFO (named pipe) if it doesn't exist
-    mknod(FIFO_PATH, __S_IFIFO | 0666, 0);
+    mknod(filename, __S_IFIFO | 0666, 0);
 
     // Open the FIFO for writing
-    fd = open(FIFO_PATH, O_WRONLY);
+    fd = open(filename, O_WRONLY);
     if (fd == -1)
     {
         perror("Error opening FIFO");
@@ -502,6 +502,7 @@ int pipe_sender(int sock)
         exit(1);
     }
     end = clock();
+    close(fd);
     cpu_time_used = (double)(end - start) / (CLOCKS_PER_SEC / 1000);
     printf(",%f\n", cpu_time_used);
     printf("The size: %zd\n", totalSent);
@@ -513,11 +514,70 @@ int pipe_sender(int sock)
     sleep(8);
     close(sock);
     // Close the FIFO
-    close(fd);
     free(sendme);
 
     return 0;
 }
+
+// int mmap_sender(int sock)
+// {
+//     // Open a file to write the random data
+//     int fd = open("random_data.bin", O_RDWR | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR);
+//     if (fd == -1)
+//     {
+//         perror("Failed to open file");
+//         return 1;
+//     }
+
+//     // Extend the file to the desired size
+//     if (lseek(fd, DATA_SIZE - 1, SEEK_SET) == -1)
+//     {
+//         perror("Failed to extend file");
+//         close(fd);
+//         return 1;
+//     }
+//     if (write(fd, "", 1) == -1)
+//     {
+//         perror("Failed to write to file");
+//         close(fd);
+//         return 1;
+//     }
+
+//     // Map the file into memory
+//     char *data = mmap(NULL, DATA_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+//     if (data == MAP_FAILED)
+//     {
+//         perror("Failed to map file");
+//         close(fd);
+//         return 1;
+//     }
+
+//     // Generate random data and fill the array
+//     for (int i = 0; i < DATA_SIZE; i++)
+//     {
+//         data[i] = rand() % 256;
+//     }
+
+//     // Print the first 10 elements of the array (for demonstration)
+//     for (int i = 0; i < 10; i++)
+//     {
+//         printf("%d ", data[i]);
+//     }
+//     printf("\n");
+
+//     // Unmap the file from memory
+//     if (munmap(data, DATA_SIZE) == -1)
+//     {
+//         perror("Failed to unmap file");
+//         close(fd);
+//         return 1;
+//     }
+
+//     // Close the file
+//     close(fd);
+
+//     return 0;
+// }
 
 int sender(char *IP, char *PORT, char *TYPE, char *PARAM)
 {
@@ -598,7 +658,7 @@ int sender(char *IP, char *PORT, char *TYPE, char *PARAM)
     }
     else if (strcmp(TYPE, "pipe") == 0)
     {
-        pipe_sender(sender_socket);
+        pipe_sender(PARAM, sender_socket);
     }
     close(sender_socket);
     return 0;

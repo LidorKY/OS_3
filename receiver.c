@@ -39,7 +39,6 @@
 #include <string.h>
 #include <poll.h>
 
-#define FIFO_PATH "/tmp/myfifo"
 
 void hash_2(uint8_t *array, size_t array_size)
 {
@@ -695,15 +694,15 @@ int uds_dgram_receiver(int sock)
     return 0;
 }
 
-int pipe_receiver(int sock)
+int pipe_receiver(char* filename, int sock)
 {
     struct pollfd pfd[2];
     int fifo_fd;
 
     // Create the FIFO (named pipe) if it doesn't exist
-    mknod(FIFO_PATH, __S_IFIFO | 0666, 0);
+    mknod(filename, __S_IFIFO | 0666, 0);
 
-    fifo_fd = open(FIFO_PATH, O_RDONLY);
+    fifo_fd = open(filename, O_RDONLY);
     if (fifo_fd == -1)
     {
         perror("Error opening FIFO");
@@ -734,6 +733,7 @@ int pipe_receiver(int sock)
         if (n == 0)
         {
             printf("timeout...\n");
+            printf("the size: %zu\n", totalReceived);
             break;
         }
         if (totalReceived == SIZE_OF_FILE)
@@ -874,7 +874,7 @@ int receiver(char *PORT)
     }
     else if (strcmp(TYPE, "pipe") == 0)
     {
-        pipe_receiver(client_socket);
+        pipe_receiver(PARAM, client_socket);
     }
 
     // receive the initial time in socket - "client_socket".
