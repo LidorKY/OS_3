@@ -461,7 +461,7 @@ int ipv6_udp_receiver(char *IP, char *port, int sock)
 int mmap_receiver(char *file_name)
 {
     int fd;
-    char *mapped_file;
+    uint8_t *mapped_file;
     struct stat st;
     uint8_t *data;
     size_t data_size;
@@ -483,8 +483,9 @@ int mmap_receiver(char *file_name)
 
     data_size = st.st_size;
 
+    sleep(7);
     // map the file to the process address space
-    mapped_file = mmap(NULL, data_size, PROT_READ, MAP_SHARED, fd, 0);
+    mapped_file = mmap(NULL, SIZE_OF_FILE, PROT_READ, MAP_SHARED, fd, 0);
     if (mapped_file == MAP_FAILED)
     {
         perror("mmap");
@@ -493,14 +494,14 @@ int mmap_receiver(char *file_name)
     }
 
     // copy the data from the mapped memory to a new buffer
-    data = malloc(data_size);
-    memcpy(data, mapped_file, data_size);
+    data = malloc(SIZE_OF_FILE);
+    memcpy(data, mapped_file, SIZE_OF_FILE);
 
     // apply hash function to the data
-    hash_2(data, data_size);
+    hash_2(data, SIZE_OF_FILE);
 
     // unmap the memory
-    if (munmap(mapped_file, data_size) < 0)
+    if (munmap(mapped_file, SIZE_OF_FILE) < 0)
     {
         perror("munmap");
         exit(EXIT_FAILURE);
@@ -508,7 +509,14 @@ int mmap_receiver(char *file_name)
 
     // close the file
     close(fd);
+    free(data);
 
+    //deleting the file
+    int result = unlink(file_name);
+    if (result == -1) {
+        perror("Error deleting file");
+        return 1;
+    }
     return 0;
 }
 

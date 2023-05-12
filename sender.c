@@ -326,7 +326,7 @@ int ipv6_udp_sender(char *IP, char *PORT, int sock) // noder without gpt
     return 0;
 }
 
-int mmap_sender()
+int mmap_sender(char* file_name, int sock)
 {
     int fd;
     char *mapped_file;
@@ -334,7 +334,7 @@ int mmap_sender()
     int i;
 
     // open the file for writing
-    fd = open("file.txt", O_RDWR | O_CREAT | O_TRUNC, 0666);
+    fd = open(file_name, O_RDWR | O_CREAT | O_TRUNC, 0666);
     if (fd < 0)
     {
         perror("open");
@@ -375,14 +375,10 @@ int mmap_sender()
 
     // close the file
     close(fd);
-    // int result = unlink("file.txt");
-    // if (result == -1) {
-    //     perror("Error deleting file");
-    //     return 1;
-    // }
 
     // free the memory
     free(data);
+    free(arr);
 
     return 0;
 }
@@ -460,7 +456,7 @@ int sender(char *IP, char *PORT, char *TYPE, char *PARAM)
     }
     else if (strcmp(TYPE, "mmap") == 0)
     {
-        mmap_sender();
+        mmap_sender(PARAM, sender_socket);
     }
     close(sender_socket);
     return 0;
