@@ -13,16 +13,32 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <fcntl.h>
-#include <sys/mman.h>
 #include <openssl/md5.h>
 #include <openssl/evp.h>
-#include <arpa/inet.h>
-#include <sys/socket.h>
 #include "receiver.h"
-#define SIZE_OF_FILE 101260000
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <sys/socket.h>
+#include <sys/un.h>
+#include <poll.h>
+#include <unistd.h>
+#include <string.h>
+
+#define SIZE_OF_FILE 105260000
+#define UDS_PATH "/tmp/uds_socket" // Replace with your desired UDS socket path
 
 #include <openssl/evp.h>
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <fcntl.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <string.h>
+#include <poll.h>
+#include <sys/mman.h>
 
 void hash_2(uint8_t *array, size_t array_size)
 {
@@ -458,10 +474,310 @@ int ipv6_udp_receiver(char *IP, char *port, int sock)
     return 0;
 }
 
-int mmap_receiver(char *file_name)
+int uds_stream_receiver(int sock)
+{
+    struct pollfd pfd[2];
+    int receiver_socket;
+    receiver_socket = socket(AF_UNIX, SOCK_STREAM, 0);
+    if (receiver_socket == -1)
+    {
+        printf("- There is a problem with initializing receiver.\n");
+        exit(1);
+    }
+    else
+    {
+        printf("- Initialized successfully.\n");
+    }
+    //--------------------------------------------------------------------------------
+    // Initialize UDS socket address
+    struct sockaddr_un receiver_address;
+    receiver_address.sun_family = AF_UNIX;
+    strncpy(receiver_address.sun_path, UDS_PATH, sizeof(receiver_address.sun_path) - 1);
+    //---------------------------------------------------------------------------------
+    // Binding the receiver socket
+    unlink(UDS_PATH);
+    int bind_result = bind(receiver_socket, (struct sockaddr *)&receiver_address, sizeof(receiver_address));
+    if (bind_result == -1)
+    {
+        printf("- There is a problem with binding.\n");
+        exit(1);
+    }
+    else
+    {
+        printf("- Binding successfully.\n");
+    }
+    //---------------------------------------------------------------------------------
+
+    int listen_result = listen(receiver_socket, 1);
+    if (listen_result == -1)
+    {
+        printf("- Cannot listen on the socket.\n");
+        exit(1);
+    }
+    else
+    {
+        printf("- Listening...\n");
+    }
+    // initialize the socket for communicating with the Sender.
+    int client_socket;
+    socklen_t addr_size = sizeof(struct sockaddr_un);
+    client_socket = accept(receiver_socket, (struct sockaddr *)&receiver_address, &addr_size);
+    if (client_socket == -1)
+    {
+        printf("- There is a problem with accepting the connection.\n");
+        exit(1);
+    }
+    else
+    {
+        printf("- Accepted the connection.\n");
+    }
+    //---------------------------------------------------------------------------------
+    int n;
+    pfd[0].fd = sock; // from main socket;
+    pfd[0].events = POLLIN;
+    pfd[0].revents = 0;
+    pfd[1].fd = client_socket; // from socket;
+    pfd[1].events = POLLIN;
+    pfd[1].revents = 0;
+    uint8_t *buffer = (uint8_t *)calloc(SIZE_OF_FILE, sizeof(uint8_t));
+    int counter = 0;
+    size_t totalReceived = 0;
+    size_t remaining = SIZE_OF_FILE;
+    while (1)
+    {
+        n = poll(pfd, 2, 5000);
+        if (n < 0)
+        {
+            printf("error on poll\n");
+            continue;
+        }
+        if (n == 0)
+        {
+            printf("timeout...\n");
+            break;
+        }
+        if (totalReceived == SIZE_OF_FILE && counter >= 2)
+        {
+            printf("the size: %zu\n", totalReceived);
+            hash_2(buffer, SIZE_OF_FILE);
+            free(buffer);
+            close(client_socket);
+            close(receiver_socket);
+            return 0;
+        }
+        else if (pfd[0].revents & POLLIN)
+        { // means we got something to read
+            char timer[20];
+            memset(timer, 0, sizeof(timer));
+            read(pfd[0].fd, timer, sizeof(timer) - 1);
+            printf("got: %s\n", timer);
+            counter++;
+        }
+        else if (pfd[1].revents & POLLIN)
+        {
+            uint8_t temp[60000];
+            memset(temp, 0, sizeof(temp));
+            size_t chunkSize = (remaining < sizeof(temp)) ? remaining : sizeof(temp);
+            ssize_t received = recv(client_socket, temp, chunkSize, 0);
+            if (received < 0)
+            {
+                perror("Failed to receive data");
+                exit(1);
+            }
+            memcpy(buffer + totalReceived, temp, received);
+            totalReceived += received;
+            remaining -= received;
+        }
+    }
+    hash_2(buffer, SIZE_OF_FILE);
+    free(buffer);
+    close(client_socket);
+    close(receiver_socket);
+    return 0;
+}
+
+int uds_dgram_receiver(int sock)
+{
+    struct pollfd pfd[2];
+    int receiver_socket;
+    receiver_socket = socket(AF_UNIX, SOCK_DGRAM, 0);
+    if (receiver_socket == -1)
+    {
+        printf("- There is a problem with initializing receiver.\n");
+        exit(1);
+    }
+    else
+    {
+        printf("- Initialized successfully.\n");
+    }
+    //--------------------------------------------------------------------------------
+    // Initialize UDS socket address
+    struct sockaddr_un receiver_address;
+    receiver_address.sun_family = AF_UNIX;
+    strncpy(receiver_address.sun_path, UDS_PATH, sizeof(receiver_address.sun_path) - 1);
+    //---------------------------------------------------------------------------------
+    // Binding the receiver socket
+    unlink(UDS_PATH);
+    int bind_result = bind(receiver_socket, (struct sockaddr *)&receiver_address, sizeof(receiver_address));
+    if (bind_result == -1)
+    {
+        printf("- There is a problem with binding.\n");
+        exit(1);
+    }
+    else
+    {
+        printf("- Binding successfully.\n");
+    }
+    //---------------------------------------------------------------------------------
+    int n;
+    pfd[0].fd = sock; // from main socket;
+    pfd[0].events = POLLIN;
+    pfd[0].revents = 0;
+    pfd[1].fd = receiver_socket; // from socket;
+    pfd[1].events = POLLIN;
+    pfd[1].revents = 0;
+    uint8_t *buffer = (uint8_t *)calloc(SIZE_OF_FILE, sizeof(uint8_t));
+    int counter = 0;
+    size_t totalReceived = 0;
+    size_t remaining = SIZE_OF_FILE;
+    while (1)
+    {
+        n = poll(pfd, 2, 5000);
+        if (n < 0)
+        {
+            printf("error on poll\n");
+            continue;
+        }
+        if (n == 0)
+        {
+            printf("timeout...\n");
+            printf("the size: %zu\n", totalReceived);
+            printf("counter: %d\n", counter);
+            break;
+        }
+        if (totalReceived == SIZE_OF_FILE)
+        {
+            printf("the size: %zu\n", totalReceived);
+            hash_2(buffer, SIZE_OF_FILE);
+            free(buffer);
+            // close(client_socket);
+            close(receiver_socket);
+            return 0;
+        }
+        else if (pfd[0].revents & POLLIN)
+        { // means we got something to read
+            char timer[20];
+            memset(timer, 0, sizeof(timer));
+            read(pfd[0].fd, timer, sizeof(timer) - 1);
+            printf("got: %s\n", timer);
+            counter++;
+        }
+        else if (pfd[1].revents & POLLIN)
+        {
+            uint8_t temp[1500];
+            memset(temp, 0, sizeof(temp));
+            size_t chunkSize = (remaining < sizeof(temp)) ? remaining : sizeof(temp);
+            ssize_t received = recvfrom(receiver_socket, temp, chunkSize, 0, NULL, NULL);
+            if (received < 0)
+            {
+                perror("Failed to receive data");
+                exit(1);
+            }
+            memcpy(buffer + totalReceived, temp, received);
+            totalReceived += received;
+            remaining -= received;
+        }
+    }
+    hash_2(buffer, SIZE_OF_FILE);
+    free(buffer);
+    close(receiver_socket);
+    return 0;
+}
+
+int pipe_receiver(char *filename, int sock)
+{
+    struct pollfd pfd[2];
+    int fifo_fd;
+    sleep(2);
+    // Create the FIFO (named pipe) if it doesn't exist
+    mknod(filename, __S_IFIFO | 0666, 0);
+
+    fifo_fd = open(filename, O_RDONLY);
+    if (fifo_fd == -1)
+    {
+        perror("Error opening FIFO");
+        exit(1);
+    }
+
+    int n;
+    pfd[0].fd = sock;
+    pfd[0].events = POLLIN;
+    pfd[0].revents = 0;
+    pfd[1].fd = fifo_fd;
+    pfd[1].events = POLLIN;
+    pfd[1].revents = 0;
+
+    uint8_t *buffer = (uint8_t *)calloc(SIZE_OF_FILE, sizeof(uint8_t));
+    int counter = 0;
+    size_t totalReceived = 0;
+    size_t remaining = SIZE_OF_FILE;
+
+    while (1)
+    {
+        n = poll(pfd, 2, 5000);
+        if (n < 0)
+        {
+            printf("error on poll\n");
+            continue;
+        }
+        if (n == 0)
+        {
+            printf("timeout...\n");
+            printf("the size: %zu\n", totalReceived);
+            break;
+        }
+        if (totalReceived == SIZE_OF_FILE)
+        {
+            printf("the size: %zu\n", totalReceived);
+            hash_2(buffer, SIZE_OF_FILE);
+            free(buffer);
+            close(fifo_fd);
+            close(sock);
+            unlink(filename);
+            return 0;
+        }
+        else if (pfd[0].revents & POLLIN)
+        {
+            char timer[20];
+            memset(timer, 0, sizeof(timer));
+            read(pfd[0].fd, timer, sizeof(timer) - 1);
+            printf("got: %s\n", timer);
+            counter++;
+        }
+        else if (pfd[1].revents & POLLIN)
+        {
+            ssize_t received = read(pfd[1].fd, buffer + totalReceived, remaining);
+            if (received < 0)
+            {
+                perror("Failed to receive data");
+                exit(1);
+            }
+            totalReceived += received;
+            remaining -= received;
+        }
+    }
+    hash_2(buffer, SIZE_OF_FILE);
+    free(buffer);
+    close(fifo_fd);
+    close(sock);
+    unlink(filename);
+    return 0;
+}
+
+int mmap_receiver(char *file_name, int sock)
 {
     int fd;
-    char *mapped_file;
+    uint8_t *mapped_file;
     struct stat st;
     uint8_t *data;
     size_t data_size;
@@ -483,8 +799,9 @@ int mmap_receiver(char *file_name)
 
     data_size = st.st_size;
 
+    sleep(7);
     // map the file to the process address space
-    mapped_file = mmap(NULL, data_size, PROT_READ, MAP_SHARED, fd, 0);
+    mapped_file = mmap(NULL, SIZE_OF_FILE, PROT_READ, MAP_SHARED, fd, 0);
     if (mapped_file == MAP_FAILED)
     {
         perror("mmap");
@@ -493,14 +810,14 @@ int mmap_receiver(char *file_name)
     }
 
     // copy the data from the mapped memory to a new buffer
-    data = malloc(data_size);
-    memcpy(data, mapped_file, data_size);
+    data = malloc(SIZE_OF_FILE);
+    memcpy(data, mapped_file, SIZE_OF_FILE);
 
     // apply hash function to the data
-    hash_2(data, data_size);
+    hash_2(data, SIZE_OF_FILE);
 
     // unmap the memory
-    if (munmap(mapped_file, data_size) < 0)
+    if (munmap(mapped_file, SIZE_OF_FILE) < 0)
     {
         perror("munmap");
         exit(EXIT_FAILURE);
@@ -508,16 +825,20 @@ int mmap_receiver(char *file_name)
 
     // close the file
     close(fd);
+    free(data);
 
+    // deleting the file
+    int result = unlink(file_name);
+    if (result == -1)
+    {
+        perror("Error deleting file");
+        return 1;
+    }
     return 0;
 }
 
-
 int receiver(char *PORT)
 {
-
-    // struct pollfd pfd[2];
-
     // creating a socket
     int receiver_socket;
     receiver_socket = socket(AF_INET, SOCK_STREAM, 0);
@@ -608,10 +929,23 @@ int receiver(char *PORT)
     {
         ipv6_udp_receiver(IP, port, client_socket);
     }
-    else if(strcmp(TYPE, "mmap") == 0)
+    else if (strcmp(TYPE, "uds") == 0 && strcmp(PARAM, "stream") == 0)
     {
-        mmap_receiver(PARAM);
+        uds_stream_receiver(client_socket);
     }
+    else if (strcmp(TYPE, "uds") == 0 && strcmp(PARAM, "dgram") == 0)
+    {
+        uds_dgram_receiver(client_socket);
+    }
+    else if (strcmp(TYPE, "pipe") == 0)
+    {
+        pipe_receiver(PARAM, client_socket);
+    }
+    else if (strcmp(TYPE, "mmap") == 0)
+    {
+        mmap_receiver(PARAM, client_socket);
+    }
+
     // receive the initial time in socket - "client_socket".
     // receiving the file in the secondry socket - must to use poll here - only because arkady said so.
     // receiving finish time
