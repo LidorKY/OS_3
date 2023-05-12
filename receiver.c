@@ -270,6 +270,8 @@ int ipv6_tcp_receiver(char *IP, char *port, int sock,int q_flag)
 {
     struct pollfd pfd[2];
     int receiver_socket;
+    clock_t start_time, end_time;
+    double time_in_ms = 0.0;
     receiver_socket = socket(AF_INET6, SOCK_STREAM, 0);
     if (receiver_socket == -1)
     {
@@ -346,6 +348,7 @@ int ipv6_tcp_receiver(char *IP, char *port, int sock,int q_flag)
         if (totalReceived == SIZE_OF_FILE && counter >= 2)
         {
             // printf("the size: %zu\n", totalReceived);
+            printf("ipv4_udp,%.f\n", time_in_ms);
             hash_2(buffer, SIZE_OF_FILE,q_flag);
             free(buffer);
             close(client_socket);
@@ -366,18 +369,22 @@ int ipv6_tcp_receiver(char *IP, char *port, int sock,int q_flag)
             uint8_t temp[60000];
             bzero(temp, 60000);
             size_t chunkSize = (remaining < 60000) ? remaining : 60000;
+            start_time = clock();
             ssize_t received = recv(client_socket, temp, chunkSize, 0);
             if (received < 0)
             {
                 perror("Failed to receive data");
                 exit(1);
             }
+            end_time = clock();
+            time_in_ms += (double)(end_time - start_time) * 1000 / CLOCKS_PER_SEC;
             memcpy(buffer + totalReceived, temp, received);
             totalReceived += received;
             remaining -= received;
         }
     }
 
+    printf("ipv4_udp,%.f\n", time_in_ms);
     hash_2(buffer, SIZE_OF_FILE,q_flag);
     free(buffer);
     close(client_socket);
