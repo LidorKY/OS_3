@@ -16,7 +16,7 @@ int main(int argc, char *argv[])
     
     int p_flag = 0;
     int q_flag = 0;
-    if(strstr(argv[2],".") != NULL){
+    if((strstr(argv[2],".") != NULL) && (strcmp(argv[1], "-s") == 0)){
         printf("usage: \n"
        "       The client side: stnc -c IP PORT -p <type> <param>\n"
        "       The Server side: stnc -s PORT -p\n");

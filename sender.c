@@ -1,46 +1,27 @@
-#include "stdio.h"
-#include "sys/types.h"
-#include "sys/socket.h"
-#include "string.h"
-#include "arpa/inet.h"
-#include "stdlib.h"
-#include "unistd.h"
-#include "netinet/in.h"
-#include "netinet/tcp.h"
-#include <poll.h>
 #include <stdio.h>
-#include <stdlib.h>
+#include <sys/types.h>
+#include <sys/socket.h>
 #include <string.h>
+#include <arpa/inet.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <netinet/in.h>
+#include <netinet/tcp.h>
+#include <poll.h>
 #include <openssl/md5.h>
 #include <time.h>
 #include <openssl/evp.h>
 #include "sender.h"
 #define SIZE_OF_FILE 105260000
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <sys/socket.h>
-#include <sys/un.h>
-#include <poll.h>
-#include <unistd.h>
-#include <string.h>
-
 #define UDS_PATH "/tmp/uds_socket" // Replace with your desired UDS socket path
 
-#include <stdio.h>
-#include <stdlib.h>
 #include <errno.h>
-#include <string.h>
 #include <fcntl.h>
-#include <unistd.h>
 #include <sys/stat.h>
-#include <sys/types.h>
-
-#include <stdio.h>
-#include <stdlib.h>
+#include <sys/un.h>
 #include <sys/mman.h>
-#include <fcntl.h>
-#include <unistd.h>
+
 
 char* ipv4_to_ipv6(const char* ipv4) {
     char* ipv6 = (char*) malloc(INET6_ADDRSTRLEN * sizeof(char));
