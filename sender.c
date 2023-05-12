@@ -344,8 +344,8 @@ int ipv6_udp_sender(char *IP, char *PORT, int sock) // noder without gpt
 
 int uds_stream_sender(int sock)
 {
-    clock_t start, end;
-    double cpu_time_used;
+    // clock_t start, end;
+    // double cpu_time_used;
     sleep(3);
     int uds_socket;
     uds_socket = socket(AF_UNIX, SOCK_STREAM, 0);
@@ -384,7 +384,7 @@ int uds_stream_sender(int sock)
     }
     size_t totalSent = 0;
     size_t remaining = SIZE_OF_FILE;
-    start = clock();
+    // start = clock();
     while (remaining > 0)
     {
         size_t chunkSize = (remaining < 60000) ? remaining : 60000;
@@ -397,26 +397,27 @@ int uds_stream_sender(int sock)
         totalSent += sent;
         remaining -= sent;
     }
-    end = clock();
-    cpu_time_used = (double)(end - start) / (CLOCKS_PER_SEC / 1000);
-    printf(",%f\n", cpu_time_used);
-    printf("The size: %zd\n", totalSent);
+    // end = clock();
+    // cpu_time_used = (double)(end - start) / (CLOCKS_PER_SEC / 1000);
+    // printf(",%f\n", cpu_time_used);
     close(uds_socket);
+    // printf("The size: %zd\n", totalSent);
     free(sendme);
     if (send(sock, "finish_time", 12, 0) == -1)
     {
         perror("Error in sending the finish time.");
         exit(1);
     }
+    sleep(3);
     close(sock);
     return 0;
 }
 
 int uds_dgram_sender(int sock)
 {
-    clock_t start, end;
-    double cpu_time_used;
-    sleep(1);
+    // clock_t start, end;
+    // double cpu_time_used;
+    // sleep(1);
     int uds_socket;
     uds_socket = socket(AF_UNIX, SOCK_DGRAM, 0);
     if (uds_socket == -1)
@@ -440,7 +441,7 @@ int uds_dgram_sender(int sock)
     }
     size_t totalSent = 0;
     size_t remaining = SIZE_OF_FILE;
-    start = clock();
+    // start = clock();
     while (remaining > 0)
     {
         size_t chunkSize = (remaining < 1500) ? remaining : 1500;
@@ -453,18 +454,18 @@ int uds_dgram_sender(int sock)
         totalSent += sent;
         remaining -= sent;
     }
-    end = clock();
-    close(uds_socket);
-    cpu_time_used = (double)(end - start) / (CLOCKS_PER_SEC / 1000);
-    printf(",%f\n", cpu_time_used);
-    printf("The size: %zd\n", totalSent);
+    // end = clock();
+    // close(uds_socket);
+    // cpu_time_used = (double)(end - start) / (CLOCKS_PER_SEC / 1000);
+    // printf(",%f\n", cpu_time_used);
+    // printf("The size: %zd\n", totalSent);
     free(sendme);
     if (send(sock, "finish_time", 12, 0) == -1)
     {
         perror("Error in sending the finish time.");
         exit(1);
     }
-    sleep(7);
+    sleep(3);
     close(sock);
     return 0;
 }

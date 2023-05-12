@@ -463,7 +463,6 @@ int ipv6_udp_receiver(char *IP, char *port, int sock)
             end_time = clock();
             time_in_ms += (double)(end_time - start_time) * 1000 / CLOCKS_PER_SEC;
             memcpy(buffer + totalReceived, temp, received);
-            memcpy(buffer + totalReceived, temp, received);
             totalReceived += received;
             remaining -= received;
         }
@@ -478,6 +477,8 @@ int uds_stream_receiver(int sock)
 {
     struct pollfd pfd[2];
     int receiver_socket;
+    clock_t start_time, end_time;
+    double time_in_ms = 0.0;
     receiver_socket = socket(AF_UNIX, SOCK_STREAM, 0);
     if (receiver_socket == -1)
     {
@@ -486,7 +487,7 @@ int uds_stream_receiver(int sock)
     }
     else
     {
-        printf("- Initialized successfully.\n");
+        // printf("- Initialized successfully.\n");
     }
     //--------------------------------------------------------------------------------
     // Initialize UDS socket address
@@ -504,7 +505,7 @@ int uds_stream_receiver(int sock)
     }
     else
     {
-        printf("- Binding successfully.\n");
+        // printf("- Binding successfully.\n");
     }
     //---------------------------------------------------------------------------------
 
@@ -516,7 +517,7 @@ int uds_stream_receiver(int sock)
     }
     else
     {
-        printf("- Listening...\n");
+        // printf("- Listening...\n");
     }
     // initialize the socket for communicating with the Sender.
     int client_socket;
@@ -529,7 +530,7 @@ int uds_stream_receiver(int sock)
     }
     else
     {
-        printf("- Accepted the connection.\n");
+        // printf("- Accepted the connection.\n");
     }
     //---------------------------------------------------------------------------------
     int n;
@@ -553,12 +554,14 @@ int uds_stream_receiver(int sock)
         }
         if (n == 0)
         {
-            printf("timeout...\n");
+            // printf("timeout...\n");
+            printf("uds_stream,%.f\n", time_in_ms);
             break;
         }
         if (totalReceived == SIZE_OF_FILE && counter >= 2)
         {
-            printf("the size: %zu\n", totalReceived);
+            // printf("the size: %zu\n", totalReceived);
+            printf("uds_stream,%.f\n", time_in_ms);
             hash_2(buffer, SIZE_OF_FILE);
             free(buffer);
             close(client_socket);
@@ -570,7 +573,7 @@ int uds_stream_receiver(int sock)
             char timer[20];
             memset(timer, 0, sizeof(timer));
             read(pfd[0].fd, timer, sizeof(timer) - 1);
-            printf("got: %s\n", timer);
+            // printf("got: %s\n", timer);
             counter++;
         }
         else if (pfd[1].revents & POLLIN)
@@ -578,12 +581,15 @@ int uds_stream_receiver(int sock)
             uint8_t temp[60000];
             memset(temp, 0, sizeof(temp));
             size_t chunkSize = (remaining < sizeof(temp)) ? remaining : sizeof(temp);
+            start_time = clock();
             ssize_t received = recv(client_socket, temp, chunkSize, 0);
             if (received < 0)
             {
                 perror("Failed to receive data");
                 exit(1);
             }
+            end_time = clock();
+            time_in_ms += (double)(end_time - start_time) * 1000 / CLOCKS_PER_SEC;
             memcpy(buffer + totalReceived, temp, received);
             totalReceived += received;
             remaining -= received;
@@ -600,6 +606,8 @@ int uds_dgram_receiver(int sock)
 {
     struct pollfd pfd[2];
     int receiver_socket;
+    clock_t start_time, end_time;
+    double time_in_ms = 0.0;
     receiver_socket = socket(AF_UNIX, SOCK_DGRAM, 0);
     if (receiver_socket == -1)
     {
@@ -608,7 +616,7 @@ int uds_dgram_receiver(int sock)
     }
     else
     {
-        printf("- Initialized successfully.\n");
+        // printf("- Initialized successfully.\n");
     }
     //--------------------------------------------------------------------------------
     // Initialize UDS socket address
@@ -626,7 +634,7 @@ int uds_dgram_receiver(int sock)
     }
     else
     {
-        printf("- Binding successfully.\n");
+        // printf("- Binding successfully.\n");
     }
     //---------------------------------------------------------------------------------
     int n;
@@ -650,14 +658,16 @@ int uds_dgram_receiver(int sock)
         }
         if (n == 0)
         {
-            printf("timeout...\n");
-            printf("the size: %zu\n", totalReceived);
-            printf("counter: %d\n", counter);
+            // printf("timeout...\n");
+            // printf("the size: %zu\n", totalReceived);
+            // printf("counter: %d\n", counter);
+            printf("uds_dgram,%.f\n", time_in_ms);
             break;
         }
         if (totalReceived == SIZE_OF_FILE)
         {
-            printf("the size: %zu\n", totalReceived);
+            // printf("the size: %zu\n", totalReceived);
+            printf("uds_dgram,%.f\n", time_in_ms);
             hash_2(buffer, SIZE_OF_FILE);
             free(buffer);
             // close(client_socket);
@@ -669,7 +679,7 @@ int uds_dgram_receiver(int sock)
             char timer[20];
             memset(timer, 0, sizeof(timer));
             read(pfd[0].fd, timer, sizeof(timer) - 1);
-            printf("got: %s\n", timer);
+            // printf("got: %s\n", timer);
             counter++;
         }
         else if (pfd[1].revents & POLLIN)
@@ -677,12 +687,15 @@ int uds_dgram_receiver(int sock)
             uint8_t temp[1500];
             memset(temp, 0, sizeof(temp));
             size_t chunkSize = (remaining < sizeof(temp)) ? remaining : sizeof(temp);
+            start_time = clock();
             ssize_t received = recvfrom(receiver_socket, temp, chunkSize, 0, NULL, NULL);
             if (received < 0)
             {
                 perror("Failed to receive data");
                 exit(1);
             }
+            end_time = clock();
+            time_in_ms += (double)(end_time - start_time) * 1000 / CLOCKS_PER_SEC;
             memcpy(buffer + totalReceived, temp, received);
             totalReceived += received;
             remaining -= received;
