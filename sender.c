@@ -157,8 +157,8 @@ int ipv4_tcp_sender(char *IP, char *PORT, int sock)
 
 int ipv4_udp_sender(char *IP, char *PORT, int sock)
 {
-    clock_t start, end;
-    double cpu_time_used;
+    // clock_t start, end;
+    // double cpu_time_used;
     sleep(1);
     int client_socket = socket(AF_INET, SOCK_DGRAM, 0);
     if (client_socket < 0)
@@ -185,7 +185,7 @@ int ipv4_udp_sender(char *IP, char *PORT, int sock)
     // ssize_t temp = 0;
     size_t totalSent = 0;
     size_t remaining = SIZE_OF_FILE;
-    start = clock();
+    // start = clock();
     while (remaining > 0)
     {
         size_t chunkSize = (remaining < 1500) ? remaining : 1500;
@@ -198,15 +198,15 @@ int ipv4_udp_sender(char *IP, char *PORT, int sock)
         totalSent += sent;
         remaining -= sent;
     }
-    end = clock();
+    // end = clock();
     if (send(sock, "finish_time", 12, 0) == -1) // send the time we have finished to send the file in the socket -"sender_socket"
     {
         perror("error in sending the start time.");
         exit(1);
     }
     // printf("Sent %zu bytes\n", totalSent);
-    cpu_time_used = (double)(end - start) / (CLOCKS_PER_SEC / 1000);
-    printf(",%f\n", cpu_time_used);
+    // cpu_time_used = (double)(end - start) / (CLOCKS_PER_SEC / 1000);
+    // printf(",%f\n", cpu_time_used);
     sleep(7);
     close(client_socket);
     return 0;
