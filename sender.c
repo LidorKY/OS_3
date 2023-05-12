@@ -472,9 +472,9 @@ int uds_dgram_sender(int sock)
 
 int pipe_sender(char *filename, int sock)
 {
-    clock_t start, end;
-    double cpu_time_used;
-    sleep(1);
+    // clock_t start, end;
+    // double cpu_time_used;
+    // sleep(1);
     int fd;
     size_t totalSent = 0;
     uint8_t *sendme = generate(); // Need to add hash here - currently located in the main function.
@@ -495,24 +495,24 @@ int pipe_sender(char *filename, int sock)
         perror("Error in sending the start time.");
         exit(1);
     }
-    start = clock();
+    // start = clock();
     // Write the data array to the FIFO
     if ((totalSent = write(fd, sendme, SIZE_OF_FILE)) == -1)
     {
         perror("Error writing to FIFO");
         exit(1);
     }
-    end = clock();
+    // end = clock();
     close(fd);
-    cpu_time_used = (double)(end - start) / (CLOCKS_PER_SEC / 1000);
-    printf(",%f\n", cpu_time_used);
-    printf("The size: %zd\n", totalSent);
+    // cpu_time_used = (double)(end - start) / (CLOCKS_PER_SEC / 1000);
+    // printf(",%f\n", cpu_time_used);
+    // printf("The size: %zd\n", totalSent);
     if (send(sock, "finish_time", 12, 0) == -1)
     {
         perror("Error in sending the finish time.");
         exit(1);
     }
-    sleep(8);
+    sleep(3);
     close(sock);
     // Close the FIFO
     free(sendme);

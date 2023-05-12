@@ -711,8 +711,8 @@ int pipe_receiver(char *filename, int sock)
 {
     struct pollfd pfd[2];
     int fifo_fd;
-    struct timeval start, end;
-    double elapsed_time;
+    clock_t start_time, end_time;
+    double time_in_ms = 0.0;
     sleep(2);
     // Create the FIFO (named pipe) if it doesn't exist
     mknod(filename, __S_IFIFO | 0666, 0);
@@ -747,14 +747,15 @@ int pipe_receiver(char *filename, int sock)
         }
         if (n == 0)
         {
-            printf("timeout...\n");
-            printf("the size: %zu\n", totalReceived);
+            // printf("timeout...\n");
+            // printf("the size: %zu\n", totalReceived);
+            printf("pipe_%s,%.f\n", filename, time_in_ms);
             break;
         }
         if (totalReceived == SIZE_OF_FILE)
         {
             // printf("the size: %zu\n", totalReceived);
-            printf("pipe,%ld\n", (long int)elapsed_time);
+            printf("pipe_%s,%.f\n", filename, time_in_ms);
             hash_2(buffer, SIZE_OF_FILE);
             free(buffer);
             close(fifo_fd);
@@ -767,22 +768,20 @@ int pipe_receiver(char *filename, int sock)
             char timer[20];
             memset(timer, 0, sizeof(timer));
             read(pfd[0].fd, timer, sizeof(timer) - 1);
-            printf("got: %s\n", timer);
+            // printf("got: %s\n", timer);
             counter++;
         }
         else if (pfd[1].revents & POLLIN)
         {
-            gettimeofday(&start, NULL);
+            start_time = clock();
             ssize_t received = read(pfd[1].fd, buffer + totalReceived, remaining);
             if (received < 0)
             {
                 perror("Failed to receive data");
                 exit(1);
             }
-            gettimeofday(&end, NULL);
-            // calculate the time.
-            elapsed_time = (end.tv_sec - start.tv_sec) * 1000.0;
-            elapsed_time += (end.tv_usec - start.tv_usec) / 1000.0;
+            end_time = clock();
+            time_in_ms += (double)(end_time - start_time) * 1000 / CLOCKS_PER_SEC;
             totalReceived += received;
             remaining -= received;
         }
@@ -873,7 +872,7 @@ int mmap_receiver(char *file_name, int sock)
             // calculate the time.
             elapsed_time = (end.tv_sec - start.tv_sec) * 1000.0;
             elapsed_time += (end.tv_usec - start.tv_usec) / 1000.0;
-            printf("%ld\n", (long int)elapsed_time);
+            printf("mmap_%s,%ld\n", file_name, (long int)elapsed_time);
 
             // close the file
             close(fd);
