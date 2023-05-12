@@ -67,6 +67,8 @@ void hash_2(uint8_t *array, size_t array_size)
 
 int ipv4_tcp_receiver(char *IP, char *port, int sock)
 {
+    clock_t start, end;
+    double cpu_time_used;
     struct pollfd pfd[2];
     int receiver_socket;
     receiver_socket = socket(AF_INET, SOCK_STREAM, 0);
@@ -88,7 +90,7 @@ int ipv4_tcp_receiver(char *IP, char *port, int sock)
     // initialize where to send
     struct sockaddr_in Sender_address, new_addr;
     Sender_address.sin_family = AF_INET;
-    Sender_address.sin_port = htons(atoi(port));
+    Sender_address.sin_port = htons(atoi(port) + 3);
     Sender_address.sin_addr.s_addr = INADDR_ANY;
     //---------------------------------------------------------------------------------
     // connecting the Receiver and Sender
@@ -143,9 +145,11 @@ int ipv4_tcp_receiver(char *IP, char *port, int sock)
             printf("timeout...\n");
             break;
         }
-        if (totalReceived == SIZE_OF_FILE && counter >= 2)
+        if (totalReceived == SIZE_OF_FILE)
         {
             printf("the size: %zu\n", totalReceived);
+            cpu_time_used = cpu_time_used / (CLOCKS_PER_SEC / 1000);
+            printf(",%f\n", cpu_time_used);
             hash_2(buffer, SIZE_OF_FILE);
             free(buffer);
             close(client_socket);
@@ -165,12 +169,15 @@ int ipv4_tcp_receiver(char *IP, char *port, int sock)
             uint8_t temp[60000];
             bzero(temp, 60000);
             size_t chunkSize = (remaining < 60000) ? remaining : 60000;
+            start = clock();
             ssize_t received = recv(client_socket, temp, chunkSize, 0);
             if (received < 0)
             {
                 perror("Failed to receive data");
                 exit(1);
             }
+            end = clock();
+            cpu_time_used += ((double)(end - start));
             memcpy(buffer + totalReceived, temp, received);
             totalReceived += received;
             remaining -= received;
@@ -860,7 +867,7 @@ int receiver(char *PORT)
     // initialize where to send
     struct sockaddr_in Sender_address, new_addr;
     Sender_address.sin_family = AF_INET;
-    Sender_address.sin_port = htons(9999);
+    Sender_address.sin_port = htons(atoi(PORT));
     Sender_address.sin_addr.s_addr = INADDR_ANY;
     //---------------------------------------------------------------------------------
     // connecting the Receiver and Sender

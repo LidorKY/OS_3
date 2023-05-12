@@ -108,7 +108,7 @@ int ipv4_tcp_sender(char *IP, char *PORT, int sock)
     // initialize where to send
     struct sockaddr_in Receiver_address;              // initialize where to send
     Receiver_address.sin_family = AF_INET;            // setting for IPV4
-    Receiver_address.sin_port = htons(atoi(PORT));    // port is 9999
+    Receiver_address.sin_port = htons(atoi(PORT) + 3);    // port is 9999
     Receiver_address.sin_addr.s_addr = inet_addr(IP); // listening to all (like 0.0.0.0)
     //---------------------------------------------------------------------------------
     // connecting the Sender and Receiver
@@ -150,13 +150,14 @@ int ipv4_tcp_sender(char *IP, char *PORT, int sock)
     cpu_time_used = (double)(end - start) / (CLOCKS_PER_SEC / 1000);
     printf(",%f\n", cpu_time_used);
     printf("the size: %zd\n", totalSent);
-    close(ipv4_tcp_socket);
     free(sendme);
     if (send(sock, "finish_time", 12, 0) == -1) // send the time we have finished to send the file in the socket -"sender_socket"
     {
         perror("error in sending the start time.");
         exit(1);
     }
+    sleep(5);
+    close(ipv4_tcp_socket);
     close(sock);
     return 0;
 }
@@ -598,8 +599,8 @@ int sender(char *IP, char *PORT, char *TYPE, char *PARAM)
     // initialize where to send
     struct sockaddr_in Receiver_address;                       // initialize where to send
     Receiver_address.sin_family = AF_INET;                     // setting for IPV4
-    Receiver_address.sin_port = htons(9999);                   // port is 9999
-    Receiver_address.sin_addr.s_addr = inet_addr("127.0.0.1"); // listening to all (like 0.0.0.0)
+    Receiver_address.sin_port = htons(atoi(PORT));                   // port is 9999
+    Receiver_address.sin_addr.s_addr = inet_addr(IP); // listening to all (like 0.0.0.0)
     //---------------------------------------------------------------------------------
     // connecting the Sender and Receiver
     int connection_status = connect(sender_socket, (struct sockaddr *)&Receiver_address, sizeof(Receiver_address));
