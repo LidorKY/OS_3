@@ -38,7 +38,7 @@ void hash_2(uint8_t *array, size_t array_size,int q_flag)
     // Finalize the hash and store the result in the 'hash' buffer
     EVP_DigestFinal(md_ctx, hash, &hash_len);
 
-    if(q_flag){
+    if(!q_flag){
         // Print the resulting hash
         for (int i = 0; i < hash_len; ++i)
         {

@@ -57,7 +57,7 @@ uint8_t *generate()
     return array;
 }
 
-void hash_1(uint8_t *array, size_t array_size)
+void hash_1(uint8_t *array, size_t array_size, int q_flag)
 {
     unsigned char hash[MD5_DIGEST_LENGTH];
     EVP_MD_CTX *context = EVP_MD_CTX_new();
@@ -80,17 +80,18 @@ void hash_1(uint8_t *array, size_t array_size)
 #endif
 
     // Print the resulting hash
-
-    for (int i = 0; i < MD5_DIGEST_LENGTH; ++i)
-    {
-        printf("%02x", hash[i]);
+    if(!q_flag){
+        for (int i = 0; i < MD5_DIGEST_LENGTH; ++i)
+        {
+            printf("%02x", hash[i]);
+        }
+        printf("\n");
     }
-    printf("\n");
 
     EVP_MD_CTX_free(context);
 }
 
-int ipv4_tcp_sender(char *IP, char *PORT, int sock)
+int ipv4_tcp_sender(char *IP, char *PORT, int sock,int q_flag)
 {
     sleep(3);
     int ipv4_tcp_socket;
@@ -123,7 +124,7 @@ int ipv4_tcp_sender(char *IP, char *PORT, int sock)
     //---------------------------------------------------------------------------------
     // send the file
     uint8_t *sendme = generate(); // need to add hash here -> currently located in the main function.
-    hash_1(sendme, SIZE_OF_FILE);
+    hash_1(sendme, SIZE_OF_FILE,q_flag);
     if (send(sock, "start_time", 11, 0) == -1) // send the time we have started to send the file in the socket -"sender_socket"
     {
         perror("error in sending the start time.");
@@ -156,7 +157,7 @@ int ipv4_tcp_sender(char *IP, char *PORT, int sock)
     return 0;
 }
 
-int ipv4_udp_sender(char *IP, char *PORT, int sock)
+int ipv4_udp_sender(char *IP, char *PORT, int sock,int q_flag)
 {
     // clock_t start, end;
     // double cpu_time_used;
@@ -176,7 +177,7 @@ int ipv4_udp_sender(char *IP, char *PORT, int sock)
     server_addr.sin_addr.s_addr = inet_addr(IP);
 
     uint8_t *sendme = generate(); // need to add hash here -> currently located in the main function.
-    hash_1(sendme, SIZE_OF_FILE);
+    hash_1(sendme, SIZE_OF_FILE,q_flag);
 
     if (send(sock, "start_time", 11, 0) == -1) // send the time we have started to send the file in the socket -"sender_socket"
     {
@@ -213,7 +214,7 @@ int ipv4_udp_sender(char *IP, char *PORT, int sock)
     return 0;
 }
 
-int ipv6_tcp_sender(char *IP, char *PORT, int sock)
+int ipv6_tcp_sender(char *IP, char *PORT, int sock,int q_flag)
 {
     clock_t start, end;
     double cpu_time_used;
@@ -248,7 +249,7 @@ int ipv6_tcp_sender(char *IP, char *PORT, int sock)
     //---------------------------------------------------------------------------------
     // send the file
     uint8_t *sendme = generate(); // need to add hash here -> currently located in the main function.
-    hash_1(sendme, SIZE_OF_FILE);
+    hash_1(sendme, SIZE_OF_FILE,q_flag);
     if (send(sock, "start_time", 11, 0) == -1) // send the time we have started to send the file in the socket -"sender_socket"
     {
         perror("error in sending the start time.");
@@ -286,7 +287,7 @@ int ipv6_tcp_sender(char *IP, char *PORT, int sock)
     return 0;
 }
 
-int ipv6_udp_sender(char *IP, char *PORT, int sock) // noder without gpt
+int ipv6_udp_sender(char *IP, char *PORT, int sock,int q_flag) // noder without gpt
 {
     // clock_t start, end;
     // double cpu_time_used;
@@ -306,7 +307,7 @@ int ipv6_udp_sender(char *IP, char *PORT, int sock) // noder without gpt
     inet_pton(AF_INET6, IP, &server_addr.sin6_addr);
 
     uint8_t *sendme = generate(); // need to add hash here -> currently located in the main function.
-    hash_1(sendme, SIZE_OF_FILE);
+    hash_1(sendme, SIZE_OF_FILE,q_flag);
 
     if (send(sock, "start_time", 11, 0) == -1) // send the time we have started to send the file in the socket -"sender_socket"
     {
@@ -343,7 +344,7 @@ int ipv6_udp_sender(char *IP, char *PORT, int sock) // noder without gpt
     return 0;
 }
 
-int uds_stream_sender(int sock)
+int uds_stream_sender(int sock,int q_flag)
 {
     // clock_t start, end;
     // double cpu_time_used;
@@ -377,7 +378,7 @@ int uds_stream_sender(int sock)
     //---------------------------------------------------------------------------------
     // Send the file
     uint8_t *sendme = generate(); // Need to add hash here - currently located in the main function.
-    hash_1(sendme, SIZE_OF_FILE);
+    hash_1(sendme, SIZE_OF_FILE,q_flag);
     if (send(sock, "start_time", 11, 0) == -1)
     {
         perror("Error in sending the start time.");
@@ -414,7 +415,7 @@ int uds_stream_sender(int sock)
     return 0;
 }
 
-int uds_dgram_sender(int sock)
+int uds_dgram_sender(int sock,int q_flag)
 {
     // clock_t start, end;
     // double cpu_time_used;
@@ -434,7 +435,7 @@ int uds_dgram_sender(int sock)
     //---------------------------------------------------------------------------------
     // Send the file
     uint8_t *sendme = generate(); // Need to add hash here - currently located in the main function.
-    hash_1(sendme, SIZE_OF_FILE);
+    hash_1(sendme, SIZE_OF_FILE,q_flag);
     if (send(sock, "start_time", 11, 0) == -1)
     {
         perror("Error in sending the start time.");
@@ -471,7 +472,7 @@ int uds_dgram_sender(int sock)
     return 0;
 }
 
-int pipe_sender(char *filename, int sock)
+int pipe_sender(char *filename, int sock,int q_flag)
 {
     // clock_t start, end;
     // double cpu_time_used;
@@ -479,7 +480,7 @@ int pipe_sender(char *filename, int sock)
     int fd;
     size_t totalSent = 0;
     uint8_t *sendme = generate(); // Need to add hash here - currently located in the main function.
-    hash_1(sendme, SIZE_OF_FILE);
+    hash_1(sendme, SIZE_OF_FILE,q_flag);
 
     // Create the FIFO (named pipe) if it doesn't exist
     mknod(filename, __S_IFIFO | 0666, 0);
@@ -520,7 +521,7 @@ int pipe_sender(char *filename, int sock)
     return 0;
 }
 
-int mmap_sender(char *file_name, int sock)
+int mmap_sender(char *file_name, int sock,int q_flag)
 {
     int fd;
     char *mapped_file;
@@ -578,7 +579,7 @@ int mmap_sender(char *file_name, int sock)
     }
 
     // printf("arr= %s\n",arr);
-    hash_1(arr, SIZE_OF_FILE);
+    hash_1(arr, SIZE_OF_FILE,q_flag);
 
     // close the file and socket
     close(fd);
@@ -645,35 +646,35 @@ int sender(char *IP, char *PORT, char *TYPE, char *PARAM, int q_flag)
     // need to create here 8 different comumunications.
     if (strcmp(TYPE, "ipv4") == 0 && strcmp(PARAM, "tcp") == 0)
     {
-        ipv4_tcp_sender(IP, PORT, sender_socket);
+        ipv4_tcp_sender(IP, PORT, sender_socket,q_flag);
     }
     else if (strcmp(TYPE, "ipv4") == 0 && strcmp(PARAM, "udp") == 0)
     {
-        ipv4_udp_sender(IP, PORT, sender_socket);
+        ipv4_udp_sender(IP, PORT, sender_socket,q_flag);
     }
     else if (strcmp(TYPE, "ipv6") == 0 && strcmp(PARAM, "tcp") == 0)
     {
-        ipv6_tcp_sender(IP, PORT, sender_socket);
+        ipv6_tcp_sender(IP, PORT, sender_socket,q_flag);
     }
     else if (strcmp(TYPE, "ipv6") == 0 && strcmp(PARAM, "udp") == 0)
     {
-        ipv6_udp_sender(IP, PORT, sender_socket);
+        ipv6_udp_sender(IP, PORT, sender_socket,q_flag);
     }
     else if (strcmp(TYPE, "uds") == 0 && strcmp(PARAM, "stream") == 0)
     {
-        uds_stream_sender(sender_socket);
+        uds_stream_sender(sender_socket,q_flag);
     }
     else if (strcmp(TYPE, "uds") == 0 && strcmp(PARAM, "dgram") == 0)
     {
-        uds_dgram_sender(sender_socket);
+        uds_dgram_sender(sender_socket,q_flag);
     }
     else if (strcmp(TYPE, "pipe") == 0)
     {
-        pipe_sender(PARAM, sender_socket);
+        pipe_sender(PARAM, sender_socket,q_flag);
     }
     else if (strcmp(TYPE, "mmap") == 0)
     {
-        mmap_sender(PARAM, sender_socket);
+        mmap_sender(PARAM, sender_socket,q_flag);
     }
     close(sender_socket);
     return 0;

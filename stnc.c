@@ -50,7 +50,10 @@ int main(int argc, char *argv[])
 
     if(q_flag && !p_flag)
     {
-        printf("usage...");
+        printf("usage: \n"
+       "       The client side: stnc -c IP PORT -p <type> <param>\n"
+       "       The Server side: stnc -s PORT -p\n");
+       return 0;
     }
     if ((strcmp(argv[1], "-c") == 0) && (p_flag) && (argv[5] != NULL) && ((argv[6] != NULL) || (argv[7] != NULL))) //add type and param
     {   
@@ -75,7 +78,9 @@ int main(int argc, char *argv[])
     }
     else
     {
-        printf("\nerror.\n"); // -> needed to be fixed to usage.
+        printf("usage: \n"
+       "       The client side: stnc -c IP PORT -p <type> <param>\n"
+       "       The Server side: stnc -s PORT -p\n");
     }
     return 0;
 }
