@@ -287,7 +287,7 @@ int ipv6_tcp_receiver(char *IP, char *port, int sock)
     // initialize where to send
     struct sockaddr_in6 Sender_address, new_addr;
     Sender_address.sin6_family = AF_INET6;
-    Sender_address.sin6_port = htons(atoi(port));
+    Sender_address.sin6_port = htons(atoi(port) + 3);
     Sender_address.sin6_addr = in6addr_any;
     //---------------------------------------------------------------------------------
     // connecting the Receiver and Sender
@@ -301,7 +301,6 @@ int ipv6_tcp_receiver(char *IP, char *port, int sock)
         // printf("-bindding successfully.\n");
     }
     //---------------------------------------------------------------------------------
-
     int sock_queue = listen(receiver_socket, 1); // now it can listen to two senders in pareral.
     if (sock_queue == -1)
     { // if there are already 2 senders.
@@ -386,6 +385,8 @@ int ipv6_tcp_receiver(char *IP, char *port, int sock)
 int ipv6_udp_receiver(char *IP, char *port, int sock)
 {
     struct pollfd pfd[2];
+    clock_t start_time, end_time;
+    double time_in_ms = 0.0;
     int server_socket = socket(AF_INET6, SOCK_DGRAM, 0);
     if (server_socket < 0)
     {
@@ -395,7 +396,7 @@ int ipv6_udp_receiver(char *IP, char *port, int sock)
     struct sockaddr_in6 server_addr;
     memset(&server_addr, 0, sizeof(server_addr));
     server_addr.sin6_family = AF_INET6;
-    server_addr.sin6_port = htons(atoi(port));
+    server_addr.sin6_port = htons(atoi(port) + 3);
     inet_pton(AF_INET6, IP, &(server_addr.sin6_addr));
     if (bind(server_socket, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0)
     {
@@ -427,7 +428,8 @@ int ipv6_udp_receiver(char *IP, char *port, int sock)
         }
         if (n == 0)
         {
-            printf("timeout...\n");
+            // printf("timeout...\n");
+            printf("ipv6_udp,%.f\n", time_in_ms);
             break;
         }
         if (totalReceived == SIZE_OF_FILE && counter >= 2)
@@ -442,8 +444,8 @@ int ipv6_udp_receiver(char *IP, char *port, int sock)
         {
             bzero(timer, 20);
             read(pfd[0].fd, timer, 20);
-            printf("got: %s", timer);
-            printf("\n");
+            // printf("got: %s", timer);
+            // printf("\n");
             counter++;
         }
         else if (pfd[1].revents & POLLIN)
@@ -451,18 +453,21 @@ int ipv6_udp_receiver(char *IP, char *port, int sock)
             uint8_t temp[1500];
             bzero(temp, 1500);
             socklen_t serverAddrLen = sizeof(server_addr);
+            start_time = clock();
             ssize_t received = recvfrom(server_socket, temp, sizeof(temp), 0, (struct sockaddr *)&server_addr, &serverAddrLen);
             if (received < 0)
             {
                 perror("Failed to receive data");
                 exit(1);
             }
+            end_time = clock();
+            time_in_ms += (double)(end_time - start_time) * 1000 / CLOCKS_PER_SEC;
+            memcpy(buffer + totalReceived, temp, received);
             memcpy(buffer + totalReceived, temp, received);
             totalReceived += received;
             remaining -= received;
         }
     }
-
     hash_2(buffer, SIZE_OF_FILE);
     free(buffer);
     close(server_socket);
