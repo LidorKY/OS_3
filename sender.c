@@ -91,14 +91,12 @@ void hash_1(uint8_t *array, size_t array_size)
 
 int ipv4_tcp_sender(char *IP, char *PORT, int sock)
 {
-    clock_t start, end;
-    double cpu_time_used;
     sleep(3);
     int ipv4_tcp_socket;
     ipv4_tcp_socket = socket(AF_INET, SOCK_STREAM, 0); // because we are in linux the default cc is cubic.
     if (ipv4_tcp_socket == -1)
     {
-        printf("there is a problem with initializing sender.\n");
+        // printf("there is a problem with initializing sender.\n");
     }
     else
     {
@@ -115,7 +113,7 @@ int ipv4_tcp_sender(char *IP, char *PORT, int sock)
     int connection_status = connect(ipv4_tcp_socket, (struct sockaddr *)&Receiver_address, sizeof(Receiver_address));
     if (connection_status == -1)
     {
-        printf("there is an error with the connection.\n");
+        // printf("there is an error with the connection.\n");
     }
     else
     {
@@ -133,7 +131,6 @@ int ipv4_tcp_sender(char *IP, char *PORT, int sock)
     // ssize_t temp = 0;
     size_t totalSent = 0;
     size_t remaining = SIZE_OF_FILE;
-    start = clock();
     while (remaining > 0)
     {
         size_t chunkSize = (remaining < 60000) ? remaining : 60000;
@@ -146,10 +143,6 @@ int ipv4_tcp_sender(char *IP, char *PORT, int sock)
         totalSent += sent;
         remaining -= sent;
     }
-    end = clock();
-    cpu_time_used = (double)(end - start) / (CLOCKS_PER_SEC / 1000);
-    printf(",%f\n", cpu_time_used);
-    printf("the size: %zd\n", totalSent);
     free(sendme);
     if (send(sock, "finish_time", 12, 0) == -1) // send the time we have finished to send the file in the socket -"sender_socket"
     {
@@ -166,7 +159,7 @@ int ipv4_udp_sender(char *IP, char *PORT, int sock)
 {
     clock_t start, end;
     double cpu_time_used;
-    sleep(3);
+    sleep(1);
     int client_socket = socket(AF_INET, SOCK_DGRAM, 0);
     if (client_socket < 0)
     {
@@ -178,7 +171,7 @@ int ipv4_udp_sender(char *IP, char *PORT, int sock)
     memset(&server_addr, 0, sizeof(server_addr));
 
     server_addr.sin_family = AF_INET;
-    server_addr.sin_port = htons(atoi(PORT));
+    server_addr.sin_port = htons(atoi(PORT) + 3);
     server_addr.sin_addr.s_addr = inet_addr(IP);
 
     uint8_t *sendme = generate(); // need to add hash here -> currently located in the main function.
@@ -211,10 +204,10 @@ int ipv4_udp_sender(char *IP, char *PORT, int sock)
         perror("error in sending the start time.");
         exit(1);
     }
-    printf("Sent %zu bytes\n", totalSent);
+    // printf("Sent %zu bytes\n", totalSent);
     cpu_time_used = (double)(end - start) / (CLOCKS_PER_SEC / 1000);
     printf(",%f\n", cpu_time_used);
-    sleep(10);
+    sleep(7);
     close(client_socket);
     return 0;
 }
@@ -228,7 +221,7 @@ int ipv6_tcp_sender(char *IP, char *PORT, int sock)
     ipv6_tcp_socket = socket(AF_INET6, SOCK_STREAM, 0); // use AF_INET6 for IPv6
     if (ipv6_tcp_socket == -1)
     {
-        printf("there is a problem with initializing sender.\n");
+        // printf("there is a problem with initializing sender.\n");
     }
     else
     {
@@ -245,7 +238,7 @@ int ipv6_tcp_sender(char *IP, char *PORT, int sock)
     int connection_status = connect(ipv6_tcp_socket, (struct sockaddr *)&Receiver_address, sizeof(Receiver_address));
     if (connection_status == -1)
     {
-        printf("there is an error with the connection.\n");
+        // printf("there is an error with the connection.\n");
     }
     else
     {
@@ -278,8 +271,8 @@ int ipv6_tcp_sender(char *IP, char *PORT, int sock)
     }
     end = clock();
     cpu_time_used = (double)(end - start) / (CLOCKS_PER_SEC / 1000);
-    printf(",%f\n", cpu_time_used);
-    printf("the size: %zd\n", totalSent);
+    printf("ipv6_tcp,%f\n", cpu_time_used);
+    // printf("the size: %zd\n", totalSent);
     close(ipv6_tcp_socket);
     free(sendme);
     if (send(sock, "finish_time", 12, 0) == -1) // send the time we have finished to send the file in the socket -"sender_socket"
@@ -556,7 +549,11 @@ int mmap_sender(char* file_name, int sock)
         perror("write");
         exit(EXIT_FAILURE);
     }
-
+    if (send(sock, "start_time", 11, 0) == -1)
+    {
+        perror("Error in sending the start time.");
+        exit(1);
+    }
     // map the memory to the process address space
     mapped_file = mmap(NULL, SIZE_OF_FILE, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
     if (mapped_file == MAP_FAILED)
@@ -568,13 +565,20 @@ int mmap_sender(char* file_name, int sock)
     // write 100MB of data to the mapped file
     uint8_t *arr = generate();
     memcpy(mapped_file, arr, SIZE_OF_FILE);
+
+    if (send(sock, "finish_time", 12, 0) == -1)
+    {
+        perror("Error in sending the finish time.");
+        exit(1);
+    }
+
     // printf("arr= %s\n",arr);
     hash_1(arr, SIZE_OF_FILE);
 
-    // close the file
+    // close the file and socket
     close(fd);
-
-    // free the memory
+    // sleep(8);
+    close(sock);
     free(data);
     free(arr);
 
@@ -593,7 +597,7 @@ int sender(char *IP, char *PORT, char *TYPE, char *PARAM)
     }
     else
     {
-        printf("-initialize successfully.\n");
+        // printf("-initialize successfully.\n");
     }
     //--------------------------------------------------------------------------------
     // initialize where to send
@@ -610,7 +614,7 @@ int sender(char *IP, char *PORT, char *TYPE, char *PARAM)
     }
     else
     {
-        printf("-connected.\n");
+        // printf("-connected.\n");
     }
     //---------------------------------------------------------------------------------
 
