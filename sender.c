@@ -1,25 +1,46 @@
 #include "stdio.h"
 #include "sys/types.h"
 #include "sys/socket.h"
-#include "sys/stat.h"
 #include "string.h"
 #include "arpa/inet.h"
 #include "stdlib.h"
 #include "unistd.h"
 #include "netinet/in.h"
 #include "netinet/tcp.h"
-#include <time.h>
 #include <poll.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <fcntl.h>
-#include <sys/mman.h>
 #include <openssl/md5.h>
+#include <time.h>
 #include <openssl/evp.h>
-#include <arpa/inet.h>
+#include "sender.h"
+#define SIZE_OF_FILE 105260000
+
+#include <stdio.h>
+#include <stdlib.h>
 #include <sys/socket.h>
-#define SIZE_OF_FILE 101260000
+#include <sys/un.h>
+#include <poll.h>
+#include <unistd.h>
+#include <string.h>
+
+#define UDS_PATH "/tmp/uds_socket" // Replace with your desired UDS socket path
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <errno.h>
+#include <string.h>
+#include <fcntl.h>
+#include <unistd.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <sys/mman.h>
+#include <fcntl.h>
+#include <unistd.h>
 
 uint8_t *generate()
 {
@@ -87,7 +108,7 @@ int ipv4_tcp_sender(char *IP, char *PORT, int sock)
     // initialize where to send
     struct sockaddr_in Receiver_address;              // initialize where to send
     Receiver_address.sin_family = AF_INET;            // setting for IPV4
-    Receiver_address.sin_port = htons(atoi(PORT));    // port is 9999
+    Receiver_address.sin_port = htons(atoi(PORT)+3);    // port is 9999
     Receiver_address.sin_addr.s_addr = inet_addr(IP); // listening to all (like 0.0.0.0)
     //---------------------------------------------------------------------------------
     // connecting the Sender and Receiver
@@ -326,6 +347,182 @@ int ipv6_udp_sender(char *IP, char *PORT, int sock) // noder without gpt
     return 0;
 }
 
+int uds_stream_sender(int sock)
+{
+    clock_t start, end;
+    double cpu_time_used;
+    sleep(3);
+    int uds_socket;
+    uds_socket = socket(AF_UNIX, SOCK_STREAM, 0);
+    if (uds_socket == -1)
+    {
+        printf("There is a problem with initializing sender.\n");
+    }
+    else
+    {
+        // printf("-initialize successfully.\n");
+    }
+    //--------------------------------------------------------------------------------
+    // Initialize where to send
+    struct sockaddr_un Receiver_address;
+    Receiver_address.sun_family = AF_UNIX;
+    strcpy(Receiver_address.sun_path, UDS_PATH);
+    //---------------------------------------------------------------------------------
+    // Connecting the Sender and Receiver
+    int connection_status = connect(uds_socket, (struct sockaddr *)&Receiver_address, sizeof(Receiver_address));
+    if (connection_status == -1)
+    {
+        printf("There is an error with the connection.\n");
+    }
+    else
+    {
+        // printf("-connected.\n");
+    }
+    //---------------------------------------------------------------------------------
+    // Send the file
+    uint8_t *sendme = generate(); // Need to add hash here - currently located in the main function.
+    hash_1(sendme, SIZE_OF_FILE);
+    if (send(sock, "start_time", 11, 0) == -1)
+    {
+        perror("Error in sending the start time.");
+        exit(1);
+    }
+    size_t totalSent = 0;
+    size_t remaining = SIZE_OF_FILE;
+    start = clock();
+    while (remaining > 0)
+    {
+        size_t chunkSize = (remaining < 60000) ? remaining : 60000;
+        ssize_t sent = send(uds_socket, sendme + totalSent, chunkSize, 0);
+        if (sent < 0)
+        {
+            perror("Failed to send data");
+            exit(1);
+        }
+        totalSent += sent;
+        remaining -= sent;
+    }
+    end = clock();
+    cpu_time_used = (double)(end - start) / (CLOCKS_PER_SEC / 1000);
+    printf(",%f\n", cpu_time_used);
+    printf("The size: %zd\n", totalSent);
+    close(uds_socket);
+    free(sendme);
+    if (send(sock, "finish_time", 12, 0) == -1)
+    {
+        perror("Error in sending the finish time.");
+        exit(1);
+    }
+    close(sock);
+    return 0;
+}
+
+int uds_dgram_sender(int sock)
+{
+    clock_t start, end;
+    double cpu_time_used;
+    sleep(1);
+    int uds_socket;
+    uds_socket = socket(AF_UNIX, SOCK_DGRAM, 0);
+    if (uds_socket == -1)
+    {
+        printf("There is a problem with initializing sender.\n");
+        exit(1);
+    }
+    //--------------------------------------------------------------------------------
+    // Initialize where to send
+    struct sockaddr_un Receiver_address;
+    Receiver_address.sun_family = AF_UNIX;
+    strcpy(Receiver_address.sun_path, UDS_PATH);
+    //---------------------------------------------------------------------------------
+    // Send the file
+    uint8_t *sendme = generate(); // Need to add hash here - currently located in the main function.
+    hash_1(sendme, SIZE_OF_FILE);
+    if (send(sock, "start_time", 11, 0) == -1)
+    {
+        perror("Error in sending the start time.");
+        exit(1);
+    }
+    size_t totalSent = 0;
+    size_t remaining = SIZE_OF_FILE;
+    start = clock();
+    while (remaining > 0)
+    {
+        size_t chunkSize = (remaining < 1500) ? remaining : 1500;
+        ssize_t sent = sendto(uds_socket, sendme + totalSent, chunkSize, 0, (struct sockaddr *)&Receiver_address, sizeof(Receiver_address));
+        if (sent < 0)
+        {
+            perror("Failed to send data");
+            exit(1);
+        }
+        totalSent += sent;
+        remaining -= sent;
+    }
+    end = clock();
+    close(uds_socket);
+    cpu_time_used = (double)(end - start) / (CLOCKS_PER_SEC / 1000);
+    printf(",%f\n", cpu_time_used);
+    printf("The size: %zd\n", totalSent);
+    free(sendme);
+    if (send(sock, "finish_time", 12, 0) == -1)
+    {
+        perror("Error in sending the finish time.");
+        exit(1);
+    }
+    sleep(7);
+    close(sock);
+    return 0;
+}
+
+int pipe_sender(char *filename, int sock)
+{
+    clock_t start, end;
+    double cpu_time_used;
+    sleep(1);
+    int fd;
+    size_t totalSent = 0;
+    uint8_t *sendme = generate(); // Need to add hash here - currently located in the main function.
+    hash_1(sendme, SIZE_OF_FILE);
+
+    // Create the FIFO (named pipe) if it doesn't exist
+    mknod(filename, __S_IFIFO | 0666, 0);
+
+    // Open the FIFO for writing
+    fd = open(filename, O_WRONLY);
+    if (fd == -1)
+    {
+        perror("Error opening FIFO");
+        exit(1);
+    }
+    if (send(sock, "start_time", 11, 0) == -1)
+    {
+        perror("Error in sending the start time.");
+        exit(1);
+    }
+    start = clock();
+    // Write the data array to the FIFO
+    if ((totalSent = write(fd, sendme, SIZE_OF_FILE)) == -1)
+    {
+        perror("Error writing to FIFO");
+        exit(1);
+    }
+    end = clock();
+    close(fd);
+    cpu_time_used = (double)(end - start) / (CLOCKS_PER_SEC / 1000);
+    printf(",%f\n", cpu_time_used);
+    printf("The size: %zd\n", totalSent);
+    if (send(sock, "finish_time", 12, 0) == -1)
+    {
+        perror("Error in sending the finish time.");
+        exit(1);
+    }
+    sleep(8);
+    close(sock);
+    // Close the FIFO
+    free(sendme);
+    return 0;
+}
+
 int mmap_sender(char* file_name, int sock)
 {
     int fd;
@@ -358,7 +555,11 @@ int mmap_sender(char* file_name, int sock)
         perror("write");
         exit(EXIT_FAILURE);
     }
-
+    if (send(sock, "start_time", 11, 0) == -1)
+    {
+        perror("Error in sending the start time.");
+        exit(1);
+    }
     // map the memory to the process address space
     mapped_file = mmap(NULL, SIZE_OF_FILE, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
     if (mapped_file == MAP_FAILED)
@@ -370,20 +571,25 @@ int mmap_sender(char* file_name, int sock)
     // write 100MB of data to the mapped file
     uint8_t *arr = generate();
     memcpy(mapped_file, arr, SIZE_OF_FILE);
+
+    if (send(sock, "finish_time", 12, 0) == -1)
+    {
+        perror("Error in sending the finish time.");
+        exit(1);
+    }
+
     // printf("arr= %s\n",arr);
     hash_1(arr, SIZE_OF_FILE);
 
-    // close the file
+    // close the file and socket
     close(fd);
-
-    // free the memory
+    // sleep(8);
+    close(sock);
     free(data);
     free(arr);
 
     return 0;
 }
-
-
 
 int sender(char *IP, char *PORT, char *TYPE, char *PARAM)
 {
@@ -453,6 +659,18 @@ int sender(char *IP, char *PORT, char *TYPE, char *PARAM)
     else if (strcmp(TYPE, "ipv6") == 0 && strcmp(PARAM, "udp") == 0)
     {
         ipv6_udp_sender(IP, PORT, sender_socket);
+    }
+    else if (strcmp(TYPE, "uds") == 0 && strcmp(PARAM, "stream") == 0)
+    {
+        uds_stream_sender(sender_socket);
+    }
+    else if (strcmp(TYPE, "uds") == 0 && strcmp(PARAM, "dgram") == 0)
+    {
+        uds_dgram_sender(sender_socket);
+    }
+    else if (strcmp(TYPE, "pipe") == 0)
+    {
+        pipe_sender(PARAM, sender_socket);
     }
     else if (strcmp(TYPE, "mmap") == 0)
     {
