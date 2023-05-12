@@ -42,6 +42,36 @@
 #include <fcntl.h>
 #include <unistd.h>
 
+char* ipv4_to_ipv6(const char* ipv4) {
+    char* ipv6 = (char*) malloc(INET6_ADDRSTRLEN * sizeof(char));
+    if (ipv6 == NULL) {
+        perror("Failed to allocate memory");
+        exit(EXIT_FAILURE);
+    }
+
+    // Convert the IPv4 address to binary form
+    struct in_addr ipv4_addr;
+    if (inet_pton(AF_INET, ipv4, &ipv4_addr) != 1) {
+        perror("Failed to convert IPv4 address");
+        exit(EXIT_FAILURE);
+    }
+
+    // Convert the IPv4 address to IPv4-mapped IPv6 address format
+    struct in6_addr ipv6_addr;
+    memset(&ipv6_addr, 0, sizeof(ipv6_addr));
+    ipv6_addr.s6_addr[10] = 0xff;
+    ipv6_addr.s6_addr[11] = 0xff;
+    memcpy(&ipv6_addr.s6_addr[12], &ipv4_addr, sizeof(ipv4_addr));
+    
+    // Convert the IPv6 address to string form
+    if (inet_ntop(AF_INET6, &ipv6_addr, ipv6, INET6_ADDRSTRLEN) == NULL) {
+        perror("Failed to convert IPv6 address");
+        exit(EXIT_FAILURE);
+    }
+
+    return ipv6;
+}
+
 uint8_t *generate()
 {
     uint8_t *array = (uint8_t *)calloc(SIZE_OF_FILE, sizeof(uint8_t));
@@ -214,16 +244,13 @@ int ipv4_udp_sender(char *IP, char *PORT, int sock,int q_flag)
     return 0;
 }
 
-int ipv6_tcp_sender(char *IP, char *PORT, int sock,int q_flag)
+int ipv6_tcp_sender(char *IP, char *PORT, int sock, int q_flag)
 {
-    clock_t start, end;
-    double cpu_time_used;
-    sleep(2);
     int ipv6_tcp_socket;
-    ipv6_tcp_socket = socket(AF_INET6, SOCK_STREAM, 0); // use AF_INET6 for IPv6
+    ipv6_tcp_socket = socket(AF_INET6, SOCK_STREAM, 0); // using IPV6
     if (ipv6_tcp_socket == -1)
     {
-        // printf("there is a problem with initializing sender.\n");
+        printf("there is a problem with initializing sender.\n");
     }
     else
     {
@@ -231,16 +258,17 @@ int ipv6_tcp_sender(char *IP, char *PORT, int sock,int q_flag)
     }
     //--------------------------------------------------------------------------------
     // initialize where to send
-    struct sockaddr_in6 Receiver_address;                 // use sockaddr_in6 for IPv6
-    Receiver_address.sin6_family = AF_INET6;              // set the family to AF_INET6
-    Receiver_address.sin6_port = htons(atoi(PORT) + 3);   // port is 9999
-    inet_pton(AF_INET6, IP, &Receiver_address.sin6_addr); // convert IPv6 address string to binary
+    struct sockaddr_in6 Receiver_address;             // initialize where to send
+    Receiver_address.sin6_family = AF_INET6;          // setting for IPV6
+    Receiver_address.sin6_port = htons(atoi(PORT) + 4);// port is 9999
+    inet_pton(AF_INET6, ipv4_to_ipv6(IP), &Receiver_address.sin6_addr); // IPv6 address of the receiver
     //---------------------------------------------------------------------------------
     // connecting the Sender and Receiver
+    sleep(5);
     int connection_status = connect(ipv6_tcp_socket, (struct sockaddr *)&Receiver_address, sizeof(Receiver_address));
     if (connection_status == -1)
     {
-        // printf("there is an error with the connection.\n");
+        printf("there is an error with the connection.\n");
     }
     else
     {
@@ -255,9 +283,9 @@ int ipv6_tcp_sender(char *IP, char *PORT, int sock,int q_flag)
         perror("error in sending the start time.");
         exit(1);
     }
+    // ssize_t temp = 0;
     size_t totalSent = 0;
     size_t remaining = SIZE_OF_FILE;
-    start = clock();
     while (remaining > 0)
     {
         size_t chunkSize = (remaining < 60000) ? remaining : 60000;
@@ -270,20 +298,15 @@ int ipv6_tcp_sender(char *IP, char *PORT, int sock,int q_flag)
         totalSent += sent;
         remaining -= sent;
     }
-    end = clock();
-    cpu_time_used = (double)(end - start) / (CLOCKS_PER_SEC / 1000);
-    printf("ipv6_tcp,%f\n", cpu_time_used);
-    // printf("the size: %zd\n", totalSent);
     free(sendme);
     if (send(sock, "finish_time", 12, 0) == -1) // send the time we have finished to send the file in the socket -"sender_socket"
     {
         perror("error in sending the start time.");
         exit(1);
     }
-    sleep(7);
+    sleep(5);
     close(ipv6_tcp_socket);
     close(sock);
-    printf("hello\n");
     return 0;
 }
 

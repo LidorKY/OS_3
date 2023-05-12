@@ -289,7 +289,7 @@ int ipv6_tcp_receiver(char *IP, char *port, int sock,int q_flag)
     // initialize where to send
     struct sockaddr_in6 Sender_address, new_addr;
     Sender_address.sin6_family = AF_INET6;
-    Sender_address.sin6_port = htons(atoi(port) + 3);
+    Sender_address.sin6_port = htons(atoi(port) + 4);
     Sender_address.sin6_addr = in6addr_any;
     //---------------------------------------------------------------------------------
     // connecting the Receiver and Sender
@@ -340,7 +340,7 @@ int ipv6_tcp_receiver(char *IP, char *port, int sock,int q_flag)
         }
         if (n == 0)
         {
-            // printf("timeout...\n");
+            printf("timeout...\n");
             break;
         }
         if (totalReceived == SIZE_OF_FILE && counter >= 2)
