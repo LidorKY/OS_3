@@ -9,7 +9,7 @@ int ipv4_tcp_sender(char *IP, char *PORT, int sock);
 int ipv4_udp_sender(char *IP, char *PORT, int sock);
 int ipv6_tcp_sender(char *IP, char *PORT, int sock);
 int ipv6_udp_sender(char *IP, char *PORT, int sock);
-int sender(char *IP, char *PORT, char *TYPE, char *PARAM);
+int sender(char *IP, char *PORT, char *TYPE, char *PARAM, int q_flag);
 
 
 

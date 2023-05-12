@@ -8,4 +8,4 @@ int ipv4_tcp_receiver(char *IP, char *port, int sock);
 int ipv4_udp_receiver(char *IP, char *port, int sock);
 int ipv6_tcp_receiver(char *IP, char *port, int sock);
 int ipv6_udp_receiver(char *IP, char *port, int sock);
-int receiver(char *PORT);
+int receiver(char *PORT, int q_flag);

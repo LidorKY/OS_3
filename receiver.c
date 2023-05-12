@@ -50,8 +50,6 @@ void hash_2(uint8_t *array, size_t array_size)
 
 int ipv4_tcp_receiver(char *IP, char *port, int sock)
 {
-    clock_t start, end;
-    double cpu_time_used;
     struct pollfd pfd[2];
     int receiver_socket;
     receiver_socket = socket(AF_INET, SOCK_STREAM, 0);
@@ -104,6 +102,8 @@ int ipv4_tcp_receiver(char *IP, char *port, int sock)
     // socket and information of the Sender like IP and Port into new_addr.
     //---------------------------------------------------------------------------------
     int n;
+    clock_t start_time, end_time;
+    double time_in_ms = 0.0;
     pfd[0].fd = sock; // from input;
     pfd[0].events = POLLIN;
     pfd[0].revents = 0;
@@ -125,14 +125,13 @@ int ipv4_tcp_receiver(char *IP, char *port, int sock)
         }
         if (n == 0)
         {
-            // printf("timeout...\n");
+            printf("timeout...\n");
             break;
         }
         if (totalReceived == SIZE_OF_FILE)
         {
             // printf("the size: %zu\n", totalReceived);
-            cpu_time_used = cpu_time_used / (CLOCKS_PER_SEC / 1000);
-            printf("ipv4_tcp,%f\n", cpu_time_used);
+            printf("ipv4_tcp,%.f\n", time_in_ms);
             hash_2(buffer, SIZE_OF_FILE);
             free(buffer);
             close(client_socket);
@@ -152,15 +151,15 @@ int ipv4_tcp_receiver(char *IP, char *port, int sock)
             uint8_t temp[60000];
             bzero(temp, 60000);
             size_t chunkSize = (remaining < 60000) ? remaining : 60000;
-            start = clock();
+            start_time = clock();
             ssize_t received = recv(client_socket, temp, chunkSize, 0);
             if (received < 0)
             {
                 perror("Failed to receive data");
                 exit(1);
             }
-            end = clock();
-            cpu_time_used += ((double)(end - start));
+            end_time = clock();
+            time_in_ms += (double)(end_time - start_time) * 1000 / CLOCKS_PER_SEC;
             memcpy(buffer + totalReceived, temp, received);
             totalReceived += received;
             remaining -= received;
@@ -185,7 +184,7 @@ int ipv4_udp_receiver(char *IP, char *port, int sock)
     struct sockaddr_in server_addr;
     memset(&server_addr, 0, sizeof(server_addr));
     server_addr.sin_family = AF_INET;
-    server_addr.sin_port = htons(atoi(port)+3);
+    server_addr.sin_port = htons(atoi(port) + 3);
     server_addr.sin_addr.s_addr = INADDR_ANY;
     if (bind(server_socket, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0)
     {
@@ -195,6 +194,8 @@ int ipv4_udp_receiver(char *IP, char *port, int sock)
     // int client_addr_len = sizeof(server_addr);
     // size_t current_size = 0;
     int n;
+    clock_t start_time, end_time;
+    double time_in_ms = 0.0;
     pfd[0].fd = sock; // from input;
     pfd[0].events = POLLIN;
     pfd[0].revents = 0;
@@ -223,6 +224,7 @@ int ipv4_udp_receiver(char *IP, char *port, int sock)
         if (totalReceived == SIZE_OF_FILE && counter >= 2)
         {
             // printf("the size: %zu\n", totalReceived);
+            printf("ipv4_udp,%.f\n", time_in_ms);
             hash_2(buffer, SIZE_OF_FILE);
             free(buffer);
             close(server_socket);
@@ -241,18 +243,21 @@ int ipv4_udp_receiver(char *IP, char *port, int sock)
             uint8_t temp[1500];
             bzero(temp, 1500);
             socklen_t serverAddrLen = sizeof(server_addr);
+            start_time = clock();
             ssize_t received = recvfrom(server_socket, temp, sizeof(temp), 0, (struct sockaddr *)&server_addr, &serverAddrLen);
             if (received < 0)
             {
                 perror("Failed to receive data");
                 exit(1);
             }
+            end_time = clock();
+            time_in_ms += (double)(end_time - start_time) * 1000 / CLOCKS_PER_SEC;
             memcpy(buffer + totalReceived, temp, received);
             totalReceived += received;
             remaining -= received;
         }
     }
-
+    printf("ipv4_udp,%.f\n", time_in_ms);
     hash_2(buffer, SIZE_OF_FILE);
     free(buffer);
     close(server_socket);
@@ -282,7 +287,7 @@ int ipv6_tcp_receiver(char *IP, char *port, int sock)
     // initialize where to send
     struct sockaddr_in6 Sender_address, new_addr;
     Sender_address.sin6_family = AF_INET6;
-    Sender_address.sin6_port = htons(atoi(port));
+    Sender_address.sin6_port = htons(atoi(port) + 3);
     Sender_address.sin6_addr = in6addr_any;
     //---------------------------------------------------------------------------------
     // connecting the Receiver and Sender
@@ -296,7 +301,6 @@ int ipv6_tcp_receiver(char *IP, char *port, int sock)
         // printf("-bindding successfully.\n");
     }
     //---------------------------------------------------------------------------------
-
     int sock_queue = listen(receiver_socket, 1); // now it can listen to two senders in pareral.
     if (sock_queue == -1)
     { // if there are already 2 senders.
@@ -381,6 +385,8 @@ int ipv6_tcp_receiver(char *IP, char *port, int sock)
 int ipv6_udp_receiver(char *IP, char *port, int sock)
 {
     struct pollfd pfd[2];
+    clock_t start_time, end_time;
+    double time_in_ms = 0.0;
     int server_socket = socket(AF_INET6, SOCK_DGRAM, 0);
     if (server_socket < 0)
     {
@@ -390,7 +396,7 @@ int ipv6_udp_receiver(char *IP, char *port, int sock)
     struct sockaddr_in6 server_addr;
     memset(&server_addr, 0, sizeof(server_addr));
     server_addr.sin6_family = AF_INET6;
-    server_addr.sin6_port = htons(atoi(port));
+    server_addr.sin6_port = htons(atoi(port) + 3);
     inet_pton(AF_INET6, IP, &(server_addr.sin6_addr));
     if (bind(server_socket, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0)
     {
@@ -422,7 +428,8 @@ int ipv6_udp_receiver(char *IP, char *port, int sock)
         }
         if (n == 0)
         {
-            printf("timeout...\n");
+            // printf("timeout...\n");
+            printf("ipv6_udp,%.f\n", time_in_ms);
             break;
         }
         if (totalReceived == SIZE_OF_FILE && counter >= 2)
@@ -437,8 +444,8 @@ int ipv6_udp_receiver(char *IP, char *port, int sock)
         {
             bzero(timer, 20);
             read(pfd[0].fd, timer, 20);
-            printf("got: %s", timer);
-            printf("\n");
+            // printf("got: %s", timer);
+            // printf("\n");
             counter++;
         }
         else if (pfd[1].revents & POLLIN)
@@ -446,18 +453,20 @@ int ipv6_udp_receiver(char *IP, char *port, int sock)
             uint8_t temp[1500];
             bzero(temp, 1500);
             socklen_t serverAddrLen = sizeof(server_addr);
+            start_time = clock();
             ssize_t received = recvfrom(server_socket, temp, sizeof(temp), 0, (struct sockaddr *)&server_addr, &serverAddrLen);
             if (received < 0)
             {
                 perror("Failed to receive data");
                 exit(1);
             }
+            end_time = clock();
+            time_in_ms += (double)(end_time - start_time) * 1000 / CLOCKS_PER_SEC;
             memcpy(buffer + totalReceived, temp, received);
             totalReceived += received;
             remaining -= received;
         }
     }
-
     hash_2(buffer, SIZE_OF_FILE);
     free(buffer);
     close(server_socket);
@@ -468,6 +477,8 @@ int uds_stream_receiver(int sock)
 {
     struct pollfd pfd[2];
     int receiver_socket;
+    clock_t start_time, end_time;
+    double time_in_ms = 0.0;
     receiver_socket = socket(AF_UNIX, SOCK_STREAM, 0);
     if (receiver_socket == -1)
     {
@@ -476,7 +487,7 @@ int uds_stream_receiver(int sock)
     }
     else
     {
-        printf("- Initialized successfully.\n");
+        // printf("- Initialized successfully.\n");
     }
     //--------------------------------------------------------------------------------
     // Initialize UDS socket address
@@ -494,7 +505,7 @@ int uds_stream_receiver(int sock)
     }
     else
     {
-        printf("- Binding successfully.\n");
+        // printf("- Binding successfully.\n");
     }
     //---------------------------------------------------------------------------------
 
@@ -506,7 +517,7 @@ int uds_stream_receiver(int sock)
     }
     else
     {
-        printf("- Listening...\n");
+        // printf("- Listening...\n");
     }
     // initialize the socket for communicating with the Sender.
     int client_socket;
@@ -519,7 +530,7 @@ int uds_stream_receiver(int sock)
     }
     else
     {
-        printf("- Accepted the connection.\n");
+        // printf("- Accepted the connection.\n");
     }
     //---------------------------------------------------------------------------------
     int n;
@@ -543,12 +554,14 @@ int uds_stream_receiver(int sock)
         }
         if (n == 0)
         {
-            printf("timeout...\n");
+            // printf("timeout...\n");
+            printf("uds_stream,%.f\n", time_in_ms);
             break;
         }
         if (totalReceived == SIZE_OF_FILE && counter >= 2)
         {
-            printf("the size: %zu\n", totalReceived);
+            // printf("the size: %zu\n", totalReceived);
+            printf("uds_stream,%.f\n", time_in_ms);
             hash_2(buffer, SIZE_OF_FILE);
             free(buffer);
             close(client_socket);
@@ -560,7 +573,7 @@ int uds_stream_receiver(int sock)
             char timer[20];
             memset(timer, 0, sizeof(timer));
             read(pfd[0].fd, timer, sizeof(timer) - 1);
-            printf("got: %s\n", timer);
+            // printf("got: %s\n", timer);
             counter++;
         }
         else if (pfd[1].revents & POLLIN)
@@ -568,12 +581,15 @@ int uds_stream_receiver(int sock)
             uint8_t temp[60000];
             memset(temp, 0, sizeof(temp));
             size_t chunkSize = (remaining < sizeof(temp)) ? remaining : sizeof(temp);
+            start_time = clock();
             ssize_t received = recv(client_socket, temp, chunkSize, 0);
             if (received < 0)
             {
                 perror("Failed to receive data");
                 exit(1);
             }
+            end_time = clock();
+            time_in_ms += (double)(end_time - start_time) * 1000 / CLOCKS_PER_SEC;
             memcpy(buffer + totalReceived, temp, received);
             totalReceived += received;
             remaining -= received;
@@ -590,6 +606,8 @@ int uds_dgram_receiver(int sock)
 {
     struct pollfd pfd[2];
     int receiver_socket;
+    clock_t start_time, end_time;
+    double time_in_ms = 0.0;
     receiver_socket = socket(AF_UNIX, SOCK_DGRAM, 0);
     if (receiver_socket == -1)
     {
@@ -598,7 +616,7 @@ int uds_dgram_receiver(int sock)
     }
     else
     {
-        printf("- Initialized successfully.\n");
+        // printf("- Initialized successfully.\n");
     }
     //--------------------------------------------------------------------------------
     // Initialize UDS socket address
@@ -616,7 +634,7 @@ int uds_dgram_receiver(int sock)
     }
     else
     {
-        printf("- Binding successfully.\n");
+        // printf("- Binding successfully.\n");
     }
     //---------------------------------------------------------------------------------
     int n;
@@ -640,14 +658,16 @@ int uds_dgram_receiver(int sock)
         }
         if (n == 0)
         {
-            printf("timeout...\n");
-            printf("the size: %zu\n", totalReceived);
-            printf("counter: %d\n", counter);
+            // printf("timeout...\n");
+            // printf("the size: %zu\n", totalReceived);
+            // printf("counter: %d\n", counter);
+            printf("uds_dgram,%.f\n", time_in_ms);
             break;
         }
         if (totalReceived == SIZE_OF_FILE)
         {
-            printf("the size: %zu\n", totalReceived);
+            // printf("the size: %zu\n", totalReceived);
+            printf("uds_dgram,%.f\n", time_in_ms);
             hash_2(buffer, SIZE_OF_FILE);
             free(buffer);
             // close(client_socket);
@@ -659,7 +679,7 @@ int uds_dgram_receiver(int sock)
             char timer[20];
             memset(timer, 0, sizeof(timer));
             read(pfd[0].fd, timer, sizeof(timer) - 1);
-            printf("got: %s\n", timer);
+            // printf("got: %s\n", timer);
             counter++;
         }
         else if (pfd[1].revents & POLLIN)
@@ -667,12 +687,15 @@ int uds_dgram_receiver(int sock)
             uint8_t temp[1500];
             memset(temp, 0, sizeof(temp));
             size_t chunkSize = (remaining < sizeof(temp)) ? remaining : sizeof(temp);
+            start_time = clock();
             ssize_t received = recvfrom(receiver_socket, temp, chunkSize, 0, NULL, NULL);
             if (received < 0)
             {
                 perror("Failed to receive data");
                 exit(1);
             }
+            end_time = clock();
+            time_in_ms += (double)(end_time - start_time) * 1000 / CLOCKS_PER_SEC;
             memcpy(buffer + totalReceived, temp, received);
             totalReceived += received;
             remaining -= received;
@@ -688,6 +711,8 @@ int pipe_receiver(char *filename, int sock)
 {
     struct pollfd pfd[2];
     int fifo_fd;
+    clock_t start_time, end_time;
+    double time_in_ms = 0.0;
     sleep(2);
     // Create the FIFO (named pipe) if it doesn't exist
     mknod(filename, __S_IFIFO | 0666, 0);
@@ -722,13 +747,15 @@ int pipe_receiver(char *filename, int sock)
         }
         if (n == 0)
         {
-            printf("timeout...\n");
-            printf("the size: %zu\n", totalReceived);
+            // printf("timeout...\n");
+            // printf("the size: %zu\n", totalReceived);
+            printf("pipe_%s,%.f\n", filename, time_in_ms);
             break;
         }
         if (totalReceived == SIZE_OF_FILE)
         {
-            printf("the size: %zu\n", totalReceived);
+            // printf("the size: %zu\n", totalReceived);
+            printf("pipe_%s,%.f\n", filename, time_in_ms);
             hash_2(buffer, SIZE_OF_FILE);
             free(buffer);
             close(fifo_fd);
@@ -741,17 +768,20 @@ int pipe_receiver(char *filename, int sock)
             char timer[20];
             memset(timer, 0, sizeof(timer));
             read(pfd[0].fd, timer, sizeof(timer) - 1);
-            printf("got: %s\n", timer);
+            // printf("got: %s\n", timer);
             counter++;
         }
         else if (pfd[1].revents & POLLIN)
         {
+            start_time = clock();
             ssize_t received = read(pfd[1].fd, buffer + totalReceived, remaining);
             if (received < 0)
             {
                 perror("Failed to receive data");
                 exit(1);
             }
+            end_time = clock();
+            time_in_ms += (double)(end_time - start_time) * 1000 / CLOCKS_PER_SEC;
             totalReceived += received;
             remaining -= received;
         }
@@ -779,9 +809,9 @@ int mmap_receiver(char *file_name, int sock)
         fd = open(file_name, O_RDONLY);
         if (fd < 0)
         {
-            
         }
-        else{
+        else
+        {
             break;
         }
     }
@@ -842,7 +872,7 @@ int mmap_receiver(char *file_name, int sock)
             // calculate the time.
             elapsed_time = (end.tv_sec - start.tv_sec) * 1000.0;
             elapsed_time += (end.tv_usec - start.tv_usec) / 1000.0;
-            printf("%ld\n", (long int)elapsed_time);
+            printf("mmap_%s,%ld\n", file_name, (long int)elapsed_time);
 
             // close the file
             close(fd);
@@ -861,7 +891,7 @@ int mmap_receiver(char *file_name, int sock)
     return 0;
 }
 
-int receiver(char *PORT)
+int receiver(char *PORT, int q_flag)
 {
     // creating a socket
     int receiver_socket;

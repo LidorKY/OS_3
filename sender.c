@@ -80,6 +80,7 @@ void hash_1(uint8_t *array, size_t array_size)
 #endif
 
     // Print the resulting hash
+
     for (int i = 0; i < MD5_DIGEST_LENGTH; ++i)
     {
         printf("%02x", hash[i]);
@@ -104,10 +105,10 @@ int ipv4_tcp_sender(char *IP, char *PORT, int sock)
     }
     //--------------------------------------------------------------------------------
     // initialize where to send
-    struct sockaddr_in Receiver_address;              // initialize where to send
-    Receiver_address.sin_family = AF_INET;            // setting for IPV4
-    Receiver_address.sin_port = htons(atoi(PORT) + 3);    // port is 9999
-    Receiver_address.sin_addr.s_addr = inet_addr(IP); // listening to all (like 0.0.0.0)
+    struct sockaddr_in Receiver_address;               // initialize where to send
+    Receiver_address.sin_family = AF_INET;             // setting for IPV4
+    Receiver_address.sin_port = htons(atoi(PORT) + 3); // port is 9999
+    Receiver_address.sin_addr.s_addr = inet_addr(IP);  // listening to all (like 0.0.0.0)
     //---------------------------------------------------------------------------------
     // connecting the Sender and Receiver
     int connection_status = connect(ipv4_tcp_socket, (struct sockaddr *)&Receiver_address, sizeof(Receiver_address));
@@ -157,9 +158,9 @@ int ipv4_tcp_sender(char *IP, char *PORT, int sock)
 
 int ipv4_udp_sender(char *IP, char *PORT, int sock)
 {
-    clock_t start, end;
-    double cpu_time_used;
-    sleep(3);
+    // clock_t start, end;
+    // double cpu_time_used;
+    sleep(1);
     int client_socket = socket(AF_INET, SOCK_DGRAM, 0);
     if (client_socket < 0)
     {
@@ -171,7 +172,7 @@ int ipv4_udp_sender(char *IP, char *PORT, int sock)
     memset(&server_addr, 0, sizeof(server_addr));
 
     server_addr.sin_family = AF_INET;
-    server_addr.sin_port = htons(atoi(PORT));
+    server_addr.sin_port = htons(atoi(PORT) + 3);
     server_addr.sin_addr.s_addr = inet_addr(IP);
 
     uint8_t *sendme = generate(); // need to add hash here -> currently located in the main function.
@@ -185,7 +186,7 @@ int ipv4_udp_sender(char *IP, char *PORT, int sock)
     // ssize_t temp = 0;
     size_t totalSent = 0;
     size_t remaining = SIZE_OF_FILE;
-    start = clock();
+    // start = clock();
     while (remaining > 0)
     {
         size_t chunkSize = (remaining < 1500) ? remaining : 1500;
@@ -198,16 +199,16 @@ int ipv4_udp_sender(char *IP, char *PORT, int sock)
         totalSent += sent;
         remaining -= sent;
     }
-    end = clock();
+    // end = clock();
     if (send(sock, "finish_time", 12, 0) == -1) // send the time we have finished to send the file in the socket -"sender_socket"
     {
         perror("error in sending the start time.");
         exit(1);
     }
     // printf("Sent %zu bytes\n", totalSent);
-    cpu_time_used = (double)(end - start) / (CLOCKS_PER_SEC / 1000);
-    printf(",%f\n", cpu_time_used);
-    sleep(10);
+    // cpu_time_used = (double)(end - start) / (CLOCKS_PER_SEC / 1000);
+    // printf(",%f\n", cpu_time_used);
+    sleep(7);
     close(client_socket);
     return 0;
 }
@@ -216,7 +217,7 @@ int ipv6_tcp_sender(char *IP, char *PORT, int sock)
 {
     clock_t start, end;
     double cpu_time_used;
-    sleep(3);
+    sleep(2);
     int ipv6_tcp_socket;
     ipv6_tcp_socket = socket(AF_INET6, SOCK_STREAM, 0); // use AF_INET6 for IPv6
     if (ipv6_tcp_socket == -1)
@@ -231,7 +232,7 @@ int ipv6_tcp_sender(char *IP, char *PORT, int sock)
     // initialize where to send
     struct sockaddr_in6 Receiver_address;                 // use sockaddr_in6 for IPv6
     Receiver_address.sin6_family = AF_INET6;              // set the family to AF_INET6
-    Receiver_address.sin6_port = htons(atoi(PORT));       // port is 9999
+    Receiver_address.sin6_port = htons(atoi(PORT) + 3);   // port is 9999
     inet_pton(AF_INET6, IP, &Receiver_address.sin6_addr); // convert IPv6 address string to binary
     //---------------------------------------------------------------------------------
     // connecting the Sender and Receiver
@@ -253,7 +254,6 @@ int ipv6_tcp_sender(char *IP, char *PORT, int sock)
         perror("error in sending the start time.");
         exit(1);
     }
-    // ssize_t temp = 0;
     size_t totalSent = 0;
     size_t remaining = SIZE_OF_FILE;
     start = clock();
@@ -273,22 +273,24 @@ int ipv6_tcp_sender(char *IP, char *PORT, int sock)
     cpu_time_used = (double)(end - start) / (CLOCKS_PER_SEC / 1000);
     printf("ipv6_tcp,%f\n", cpu_time_used);
     // printf("the size: %zd\n", totalSent);
-    close(ipv6_tcp_socket);
     free(sendme);
     if (send(sock, "finish_time", 12, 0) == -1) // send the time we have finished to send the file in the socket -"sender_socket"
     {
         perror("error in sending the start time.");
         exit(1);
     }
+    sleep(7);
+    close(ipv6_tcp_socket);
     close(sock);
+    printf("hello\n");
     return 0;
 }
 
 int ipv6_udp_sender(char *IP, char *PORT, int sock) // noder without gpt
 {
-    clock_t start, end;
-    double cpu_time_used;
-    sleep(3);
+    // clock_t start, end;
+    // double cpu_time_used;
+    sleep(1);
     int client_socket = socket(AF_INET6, SOCK_DGRAM, 0);
     if (client_socket < 0)
     {
@@ -300,7 +302,7 @@ int ipv6_udp_sender(char *IP, char *PORT, int sock) // noder without gpt
     memset(&server_addr, 0, sizeof(server_addr));
 
     server_addr.sin6_family = AF_INET;
-    server_addr.sin6_port = htons(atoi(PORT));
+    server_addr.sin6_port = htons(atoi(PORT) + 3);
     inet_pton(AF_INET6, IP, &server_addr.sin6_addr);
 
     uint8_t *sendme = generate(); // need to add hash here -> currently located in the main function.
@@ -314,7 +316,7 @@ int ipv6_udp_sender(char *IP, char *PORT, int sock) // noder without gpt
     // ssize_t temp = 0;
     size_t totalSent = 0;
     size_t remaining = SIZE_OF_FILE;
-    start = clock();
+    // start = clock();
     while (remaining > 0)
     {
         size_t chunkSize = (remaining < 1500) ? remaining : 1500;
@@ -327,24 +329,24 @@ int ipv6_udp_sender(char *IP, char *PORT, int sock) // noder without gpt
         totalSent += sent;
         remaining -= sent;
     }
-    end = clock();
+    // end = clock();
     if (send(sock, "finish_time", 12, 0) == -1) // send the time we have finished to send the file in the socket -"sender_socket"
     {
         perror("error in sending the start time.");
         exit(1);
     }
-    printf("Sent %zu bytes\n", totalSent);
-    cpu_time_used = (double)(end - start) / (CLOCKS_PER_SEC / 1000);
-    printf(",%f\n", cpu_time_used);
-    sleep(10);
+    // printf("Sent %zu bytes\n", totalSent);
+    // cpu_time_used = (double)(end - start) / (CLOCKS_PER_SEC / 1000);
+    // printf(",%f\n", cpu_time_used);
+    sleep(7);
     close(client_socket);
     return 0;
 }
 
 int uds_stream_sender(int sock)
 {
-    clock_t start, end;
-    double cpu_time_used;
+    // clock_t start, end;
+    // double cpu_time_used;
     sleep(3);
     int uds_socket;
     uds_socket = socket(AF_UNIX, SOCK_STREAM, 0);
@@ -383,7 +385,7 @@ int uds_stream_sender(int sock)
     }
     size_t totalSent = 0;
     size_t remaining = SIZE_OF_FILE;
-    start = clock();
+    // start = clock();
     while (remaining > 0)
     {
         size_t chunkSize = (remaining < 60000) ? remaining : 60000;
@@ -396,26 +398,27 @@ int uds_stream_sender(int sock)
         totalSent += sent;
         remaining -= sent;
     }
-    end = clock();
-    cpu_time_used = (double)(end - start) / (CLOCKS_PER_SEC / 1000);
-    printf(",%f\n", cpu_time_used);
-    printf("The size: %zd\n", totalSent);
+    // end = clock();
+    // cpu_time_used = (double)(end - start) / (CLOCKS_PER_SEC / 1000);
+    // printf(",%f\n", cpu_time_used);
     close(uds_socket);
+    // printf("The size: %zd\n", totalSent);
     free(sendme);
     if (send(sock, "finish_time", 12, 0) == -1)
     {
         perror("Error in sending the finish time.");
         exit(1);
     }
+    sleep(3);
     close(sock);
     return 0;
 }
 
 int uds_dgram_sender(int sock)
 {
-    clock_t start, end;
-    double cpu_time_used;
-    sleep(1);
+    // clock_t start, end;
+    // double cpu_time_used;
+    // sleep(1);
     int uds_socket;
     uds_socket = socket(AF_UNIX, SOCK_DGRAM, 0);
     if (uds_socket == -1)
@@ -439,7 +442,7 @@ int uds_dgram_sender(int sock)
     }
     size_t totalSent = 0;
     size_t remaining = SIZE_OF_FILE;
-    start = clock();
+    // start = clock();
     while (remaining > 0)
     {
         size_t chunkSize = (remaining < 1500) ? remaining : 1500;
@@ -452,27 +455,27 @@ int uds_dgram_sender(int sock)
         totalSent += sent;
         remaining -= sent;
     }
-    end = clock();
-    close(uds_socket);
-    cpu_time_used = (double)(end - start) / (CLOCKS_PER_SEC / 1000);
-    printf(",%f\n", cpu_time_used);
-    printf("The size: %zd\n", totalSent);
+    // end = clock();
+    // close(uds_socket);
+    // cpu_time_used = (double)(end - start) / (CLOCKS_PER_SEC / 1000);
+    // printf(",%f\n", cpu_time_used);
+    // printf("The size: %zd\n", totalSent);
     free(sendme);
     if (send(sock, "finish_time", 12, 0) == -1)
     {
         perror("Error in sending the finish time.");
         exit(1);
     }
-    sleep(7);
+    sleep(3);
     close(sock);
     return 0;
 }
 
 int pipe_sender(char *filename, int sock)
 {
-    clock_t start, end;
-    double cpu_time_used;
-    sleep(1);
+    // clock_t start, end;
+    // double cpu_time_used;
+    // sleep(1);
     int fd;
     size_t totalSent = 0;
     uint8_t *sendme = generate(); // Need to add hash here - currently located in the main function.
@@ -493,31 +496,31 @@ int pipe_sender(char *filename, int sock)
         perror("Error in sending the start time.");
         exit(1);
     }
-    start = clock();
+    // start = clock();
     // Write the data array to the FIFO
     if ((totalSent = write(fd, sendme, SIZE_OF_FILE)) == -1)
     {
         perror("Error writing to FIFO");
         exit(1);
     }
-    end = clock();
+    // end = clock();
     close(fd);
-    cpu_time_used = (double)(end - start) / (CLOCKS_PER_SEC / 1000);
-    printf(",%f\n", cpu_time_used);
-    printf("The size: %zd\n", totalSent);
+    // cpu_time_used = (double)(end - start) / (CLOCKS_PER_SEC / 1000);
+    // printf(",%f\n", cpu_time_used);
+    // printf("The size: %zd\n", totalSent);
     if (send(sock, "finish_time", 12, 0) == -1)
     {
         perror("Error in sending the finish time.");
         exit(1);
     }
-    sleep(8);
+    sleep(3);
     close(sock);
     // Close the FIFO
     free(sendme);
     return 0;
 }
 
-int mmap_sender(char* file_name, int sock)
+int mmap_sender(char *file_name, int sock)
 {
     int fd;
     char *mapped_file;
@@ -541,11 +544,13 @@ int mmap_sender(char* file_name, int sock)
     }
 
     // write random data to the file
-    for (i = 0; i < SIZE_OF_FILE; i++) {
+    for (i = 0; i < SIZE_OF_FILE; i++)
+    {
         data[i] = rand() % 256;
     }
 
-    if (write(fd, data, SIZE_OF_FILE) != SIZE_OF_FILE) {
+    if (write(fd, data, SIZE_OF_FILE) != SIZE_OF_FILE)
+    {
         perror("write");
         exit(EXIT_FAILURE);
     }
@@ -585,7 +590,7 @@ int mmap_sender(char* file_name, int sock)
     return 0;
 }
 
-int sender(char *IP, char *PORT, char *TYPE, char *PARAM)
+int sender(char *IP, char *PORT, char *TYPE, char *PARAM, int q_flag)
 {
 
     // creating a socket
@@ -601,9 +606,9 @@ int sender(char *IP, char *PORT, char *TYPE, char *PARAM)
     }
     //--------------------------------------------------------------------------------
     // initialize where to send
-    struct sockaddr_in Receiver_address;                       // initialize where to send
-    Receiver_address.sin_family = AF_INET;                     // setting for IPV4
-    Receiver_address.sin_port = htons(atoi(PORT));                   // port is 9999
+    struct sockaddr_in Receiver_address;              // initialize where to send
+    Receiver_address.sin_family = AF_INET;            // setting for IPV4
+    Receiver_address.sin_port = htons(atoi(PORT));    // port is 9999
     Receiver_address.sin_addr.s_addr = inet_addr(IP); // listening to all (like 0.0.0.0)
     //---------------------------------------------------------------------------------
     // connecting the Sender and Receiver
