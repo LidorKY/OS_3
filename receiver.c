@@ -50,6 +50,8 @@ void hash_2(uint8_t *array, size_t array_size)
 
 int ipv4_tcp_receiver(char *IP, char *port, int sock)
 {
+    clock_t start, end;
+    double cpu_time_used;
     struct pollfd pfd[2];
     int receiver_socket;
     receiver_socket = socket(AF_INET, SOCK_STREAM, 0);
@@ -59,7 +61,7 @@ int ipv4_tcp_receiver(char *IP, char *port, int sock)
     }
     else
     {
-        printf("-initialize successfully.\n");
+        // printf("-initialize successfully.\n");
     }
     int optval = 1;
     if (setsockopt(receiver_socket, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval)) == -1)
@@ -71,7 +73,7 @@ int ipv4_tcp_receiver(char *IP, char *port, int sock)
     // initialize where to send
     struct sockaddr_in Sender_address, new_addr;
     Sender_address.sin_family = AF_INET;
-    Sender_address.sin_port = htons(atoi(port));
+    Sender_address.sin_port = htons(atoi(port) + 3);
     Sender_address.sin_addr.s_addr = INADDR_ANY;
     //---------------------------------------------------------------------------------
     // connecting the Receiver and Sender
@@ -82,7 +84,7 @@ int ipv4_tcp_receiver(char *IP, char *port, int sock)
     }
     else
     {
-        printf("-bindding successfully.\n");
+        // printf("-bindding successfully.\n");
     }
     //---------------------------------------------------------------------------------
 
@@ -93,7 +95,7 @@ int ipv4_tcp_receiver(char *IP, char *port, int sock)
     }
     else
     {
-        printf("-listening...\n");
+        // printf("-listening...\n");
     }
     // initialize the socket for comunicating with the Sender.
     int client_socket; // the socket
@@ -123,12 +125,14 @@ int ipv4_tcp_receiver(char *IP, char *port, int sock)
         }
         if (n == 0)
         {
-            printf("timeout...\n");
+            // printf("timeout...\n");
             break;
         }
-        if (totalReceived == SIZE_OF_FILE && counter >= 2)
+        if (totalReceived == SIZE_OF_FILE)
         {
-            printf("the size: %zu\n", totalReceived);
+            // printf("the size: %zu\n", totalReceived);
+            cpu_time_used = cpu_time_used / (CLOCKS_PER_SEC / 1000);
+            printf("ipv4_tcp,%f\n", cpu_time_used);
             hash_2(buffer, SIZE_OF_FILE);
             free(buffer);
             close(client_socket);
@@ -139,8 +143,8 @@ int ipv4_tcp_receiver(char *IP, char *port, int sock)
         {
             bzero(timer, 20);
             read(pfd[0].fd, timer, 20);
-            printf("got: %s", timer);
-            printf("\n");
+            // printf("got: %s", timer);
+            // printf("\n");
             counter++;
         }
         else if (pfd[1].revents & POLLIN)
@@ -148,12 +152,15 @@ int ipv4_tcp_receiver(char *IP, char *port, int sock)
             uint8_t temp[60000];
             bzero(temp, 60000);
             size_t chunkSize = (remaining < 60000) ? remaining : 60000;
+            start = clock();
             ssize_t received = recv(client_socket, temp, chunkSize, 0);
             if (received < 0)
             {
                 perror("Failed to receive data");
                 exit(1);
             }
+            end = clock();
+            cpu_time_used += ((double)(end - start));
             memcpy(buffer + totalReceived, temp, received);
             totalReceived += received;
             remaining -= received;
@@ -178,7 +185,7 @@ int ipv4_udp_receiver(char *IP, char *port, int sock)
     struct sockaddr_in server_addr;
     memset(&server_addr, 0, sizeof(server_addr));
     server_addr.sin_family = AF_INET;
-    server_addr.sin_port = htons(atoi(port));
+    server_addr.sin_port = htons(atoi(port)+3);
     server_addr.sin_addr.s_addr = INADDR_ANY;
     if (bind(server_socket, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0)
     {
@@ -210,12 +217,12 @@ int ipv4_udp_receiver(char *IP, char *port, int sock)
         }
         if (n == 0)
         {
-            printf("timeout...\n");
+            // printf("timeout...\n");
             break;
         }
         if (totalReceived == SIZE_OF_FILE && counter >= 2)
         {
-            printf("the size: %zu\n", totalReceived);
+            // printf("the size: %zu\n", totalReceived);
             hash_2(buffer, SIZE_OF_FILE);
             free(buffer);
             close(server_socket);
@@ -225,8 +232,8 @@ int ipv4_udp_receiver(char *IP, char *port, int sock)
         {
             bzero(timer, 20);
             read(pfd[0].fd, timer, 20);
-            printf("got: %s", timer);
-            printf("\n");
+            // printf("got: %s", timer);
+            // printf("\n");
             counter++;
         }
         else if (pfd[1].revents & POLLIN)
@@ -263,7 +270,7 @@ int ipv6_tcp_receiver(char *IP, char *port, int sock)
     }
     else
     {
-        printf("-initialize successfully.\n");
+        // printf("-initialize successfully.\n");
     }
     int optval = 1;
     if (setsockopt(receiver_socket, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval)) == -1)
@@ -286,7 +293,7 @@ int ipv6_tcp_receiver(char *IP, char *port, int sock)
     }
     else
     {
-        printf("-bindding successfully.\n");
+        // printf("-bindding successfully.\n");
     }
     //---------------------------------------------------------------------------------
 
@@ -297,7 +304,7 @@ int ipv6_tcp_receiver(char *IP, char *port, int sock)
     }
     else
     {
-        printf("-listening...\n");
+        // printf("-listening...\n");
     }
     // initialize the socket for comunicating with the Sender.
     int client_socket; // the socket
@@ -327,12 +334,12 @@ int ipv6_tcp_receiver(char *IP, char *port, int sock)
         }
         if (n == 0)
         {
-            printf("timeout...\n");
+            // printf("timeout...\n");
             break;
         }
         if (totalReceived == SIZE_OF_FILE && counter >= 2)
         {
-            printf("the size: %zu\n", totalReceived);
+            // printf("the size: %zu\n", totalReceived);
             hash_2(buffer, SIZE_OF_FILE);
             free(buffer);
             close(client_socket);
@@ -344,8 +351,8 @@ int ipv6_tcp_receiver(char *IP, char *port, int sock)
             bzero(timer, 20);
             read(pfd[0].fd, timer, 20);
             sleep(0.5); // without this sleep it does'nt work.
-            printf("got: %s", timer);
-            printf("\n");
+            // printf("got: %s", timer);
+            // printf("\n");
             counter++;
         }
         else if (pfd[1].revents & POLLIN)
@@ -767,12 +774,6 @@ int mmap_receiver(char *file_name, int sock)
     double elapsed_time;
 
     // open the file received from the sender
-    // fd = open(file_name, O_RDONLY);
-    // if (fd < 0)
-    // {
-    //     perror("open");
-    //     exit(EXIT_FAILURE);
-    // }
     while (1)
     {
         fd = open(file_name, O_RDONLY);
@@ -871,7 +872,7 @@ int receiver(char *PORT)
     }
     else
     {
-        printf("-initialize successfully.\n");
+        // printf("-initialize successfully.\n");
     }
     int optval = 1;
     if (setsockopt(receiver_socket, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval)) == -1)
@@ -883,7 +884,7 @@ int receiver(char *PORT)
     // initialize where to send
     struct sockaddr_in Sender_address, new_addr;
     Sender_address.sin_family = AF_INET;
-    Sender_address.sin_port = htons(9999);
+    Sender_address.sin_port = htons(atoi(PORT));
     Sender_address.sin_addr.s_addr = INADDR_ANY;
     //---------------------------------------------------------------------------------
     // connecting the Receiver and Sender
@@ -894,7 +895,7 @@ int receiver(char *PORT)
     }
     else
     {
-        printf("-bindding successfully.\n");
+        // printf("-bindding successfully.\n");
     }
     //---------------------------------------------------------------------------------
     int sock_queue = listen(receiver_socket, 1); // now it can listen to two senders in pareral.
@@ -904,7 +905,7 @@ int receiver(char *PORT)
     }
     else
     {
-        printf("-listening...\n");
+        // printf("-listening...\n");
     }
     // initialize the socket for comunicating with the Sender.
     int client_socket; // the socket
@@ -921,20 +922,20 @@ int receiver(char *PORT)
     char PARAM[9];
     bzero(PARAM, 9);
     recv(client_socket, IP, 16, 0);
-    printf("the ip is: %s", IP);
-    printf("\n");
+    // printf("the ip is: %s", IP);
+    // printf("\n");
     sleep(1);
     recv(client_socket, port, 6, 0);
-    printf("the port is: %s", port);
-    printf("\n");
+    // printf("the port is: %s", port);
+    // printf("\n");
     sleep(1);
     recv(client_socket, TYPE, 5, 0);
-    printf("the type is: %s", TYPE);
-    printf("\n");
+    // printf("the type is: %s", TYPE);
+    // printf("\n");
     sleep(1);
     recv(client_socket, PARAM, 9, 0);
-    printf("the param is: %s", PARAM);
-    printf("\n");
+    // printf("the param is: %s", PARAM);
+    // printf("\n");
 
     if (strcmp(TYPE, "ipv4") == 0 && strcmp(PARAM, "tcp") == 0)
     {
