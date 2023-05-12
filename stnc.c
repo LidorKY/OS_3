@@ -7,25 +7,31 @@
 
 int main(int argc, char *argv[])
 {
-    // if (argc == 3)
-    // {
-    //     server(argv[2]);
-    // }
-    // if(argc == 4 && (strcmp(argv[3], "-p") != 0))
-    // {
-    //     client(argv[2], argv[3]);
-    // }
+    if(argc < 3){
+        printf("usage: \n"
+       "       The client side: stnc -c IP PORT -p <type> <param>\n"
+       "       The Server side: stnc -s PORT -p\n");
+       return 0;
+    }
     
     int p_flag = 0;
     int q_flag = 0;
-    //./stnc -s 12345 -p
-    if((strcmp(argv[3], "-p") == 0) ){
-        p_flag = 1;
-        printf("there is p flag\n");
+    if(strstr(argv[2],".") != NULL){
+        printf("usage: \n"
+       "       The client side: stnc -c IP PORT -p <type> <param>\n"
+       "       The Server side: stnc -s PORT -p\n");
+       return 0;
     }
-    if((strcmp(argv[3], "-q") == 0)){
-        q_flag = 1;
-        printf("there is q flag\n");
+    if(argv[3]!=NULL){
+    //./stnc -s 12345 -p
+        if((strcmp(argv[3], "-p") == 0) ){
+            p_flag = 1;
+            printf("there is p flag\n");
+        }
+        if((strcmp(argv[3], "-q") == 0)){
+            q_flag = 1;
+            printf("there is q flag\n");
+        }
     }
     if(argv[4]!=NULL){
         if((strcmp(argv[4], "-p") == 0)){
