@@ -23,7 +23,7 @@
 #define SIZE_OF_FILE 105260000
 #define UDS_PATH "/tmp/uds_socket" // Replace with your desired UDS socket path
 
-void hash_2(uint8_t *array, size_t array_size)
+void hash_2(uint8_t *array, size_t array_size,int q_flag)
 {
     EVP_MD_CTX *md_ctx = EVP_MD_CTX_new();
     unsigned char hash[EVP_MAX_MD_SIZE];
@@ -38,17 +38,19 @@ void hash_2(uint8_t *array, size_t array_size)
     // Finalize the hash and store the result in the 'hash' buffer
     EVP_DigestFinal(md_ctx, hash, &hash_len);
 
-    // Print the resulting hash
-    for (int i = 0; i < hash_len; ++i)
-    {
-        printf("%02x", hash[i]);
+    if(!q_flag){
+        // Print the resulting hash
+        for (int i = 0; i < hash_len; ++i)
+        {
+            printf("%02x", hash[i]);
+        }
+        printf("\n");
     }
-    printf("\n");
 
     EVP_MD_CTX_free(md_ctx);
 }
 
-int ipv4_tcp_receiver(char *IP, char *port, int sock)
+int ipv4_tcp_receiver(char *IP, char *port, int sock,int q_flag)
 {
     struct pollfd pfd[2];
     int receiver_socket;
@@ -132,7 +134,7 @@ int ipv4_tcp_receiver(char *IP, char *port, int sock)
         {
             // printf("the size: %zu\n", totalReceived);
             printf("ipv4_tcp,%.f\n", time_in_ms);
-            hash_2(buffer, SIZE_OF_FILE);
+            hash_2(buffer, SIZE_OF_FILE,q_flag);
             free(buffer);
             close(client_socket);
             close(receiver_socket);
@@ -165,14 +167,14 @@ int ipv4_tcp_receiver(char *IP, char *port, int sock)
             remaining -= received;
         }
     }
-    hash_2(buffer, SIZE_OF_FILE);
+    hash_2(buffer, SIZE_OF_FILE,q_flag);
     free(buffer);
     close(client_socket);
     close(receiver_socket);
     return 0;
 }
 
-int ipv4_udp_receiver(char *IP, char *port, int sock)
+int ipv4_udp_receiver(char *IP, char *port, int sock,int q_flag)
 {
     struct pollfd pfd[2];
     int server_socket = socket(AF_INET, SOCK_DGRAM, 0);
@@ -225,7 +227,7 @@ int ipv4_udp_receiver(char *IP, char *port, int sock)
         {
             // printf("the size: %zu\n", totalReceived);
             printf("ipv4_udp,%.f\n", time_in_ms);
-            hash_2(buffer, SIZE_OF_FILE);
+            hash_2(buffer, SIZE_OF_FILE,q_flag);
             free(buffer);
             close(server_socket);
             return 0;
@@ -258,16 +260,18 @@ int ipv4_udp_receiver(char *IP, char *port, int sock)
         }
     }
     printf("ipv4_udp,%.f\n", time_in_ms);
-    hash_2(buffer, SIZE_OF_FILE);
+    hash_2(buffer, SIZE_OF_FILE,q_flag);
     free(buffer);
     close(server_socket);
     return 0;
 }
 
-int ipv6_tcp_receiver(char *IP, char *port, int sock)
+int ipv6_tcp_receiver(char *IP, char *port, int sock,int q_flag)
 {
     struct pollfd pfd[2];
     int receiver_socket;
+    clock_t start_time, end_time;
+    double time_in_ms = 0.0;
     receiver_socket = socket(AF_INET6, SOCK_STREAM, 0);
     if (receiver_socket == -1)
     {
@@ -287,7 +291,7 @@ int ipv6_tcp_receiver(char *IP, char *port, int sock)
     // initialize where to send
     struct sockaddr_in6 Sender_address, new_addr;
     Sender_address.sin6_family = AF_INET6;
-    Sender_address.sin6_port = htons(atoi(port) + 3);
+    Sender_address.sin6_port = htons(atoi(port) + 4);
     Sender_address.sin6_addr = in6addr_any;
     //---------------------------------------------------------------------------------
     // connecting the Receiver and Sender
@@ -338,13 +342,14 @@ int ipv6_tcp_receiver(char *IP, char *port, int sock)
         }
         if (n == 0)
         {
-            // printf("timeout...\n");
+            printf("timeout...\n");
             break;
         }
         if (totalReceived == SIZE_OF_FILE && counter >= 2)
         {
             // printf("the size: %zu\n", totalReceived);
-            hash_2(buffer, SIZE_OF_FILE);
+            printf("ipv4_udp,%.f\n", time_in_ms);
+            hash_2(buffer, SIZE_OF_FILE,q_flag);
             free(buffer);
             close(client_socket);
             close(receiver_socket);
@@ -364,25 +369,29 @@ int ipv6_tcp_receiver(char *IP, char *port, int sock)
             uint8_t temp[60000];
             bzero(temp, 60000);
             size_t chunkSize = (remaining < 60000) ? remaining : 60000;
+            start_time = clock();
             ssize_t received = recv(client_socket, temp, chunkSize, 0);
             if (received < 0)
             {
                 perror("Failed to receive data");
                 exit(1);
             }
+            end_time = clock();
+            time_in_ms += (double)(end_time - start_time) * 1000 / CLOCKS_PER_SEC;
             memcpy(buffer + totalReceived, temp, received);
             totalReceived += received;
             remaining -= received;
         }
     }
 
-    hash_2(buffer, SIZE_OF_FILE);
+    printf("ipv4_udp,%.f\n", time_in_ms);
+    hash_2(buffer, SIZE_OF_FILE,q_flag);
     free(buffer);
     close(client_socket);
     return 0;
 }
 
-int ipv6_udp_receiver(char *IP, char *port, int sock)
+int ipv6_udp_receiver(char *IP, char *port, int sock,int q_flag)
 {
     struct pollfd pfd[2];
     clock_t start_time, end_time;
@@ -435,7 +444,7 @@ int ipv6_udp_receiver(char *IP, char *port, int sock)
         if (totalReceived == SIZE_OF_FILE && counter >= 2)
         {
             printf("the size: %zu\n", totalReceived);
-            hash_2(buffer, SIZE_OF_FILE);
+            hash_2(buffer, SIZE_OF_FILE,q_flag);
             free(buffer);
             close(server_socket);
             return 0;
@@ -467,13 +476,13 @@ int ipv6_udp_receiver(char *IP, char *port, int sock)
             remaining -= received;
         }
     }
-    hash_2(buffer, SIZE_OF_FILE);
+    hash_2(buffer, SIZE_OF_FILE,q_flag);
     free(buffer);
     close(server_socket);
     return 0;
 }
 
-int uds_stream_receiver(int sock)
+int uds_stream_receiver(int sock,int q_flag)
 {
     struct pollfd pfd[2];
     int receiver_socket;
@@ -562,7 +571,7 @@ int uds_stream_receiver(int sock)
         {
             // printf("the size: %zu\n", totalReceived);
             printf("uds_stream,%.f\n", time_in_ms);
-            hash_2(buffer, SIZE_OF_FILE);
+            hash_2(buffer, SIZE_OF_FILE,q_flag);
             free(buffer);
             close(client_socket);
             close(receiver_socket);
@@ -595,14 +604,14 @@ int uds_stream_receiver(int sock)
             remaining -= received;
         }
     }
-    hash_2(buffer, SIZE_OF_FILE);
+    hash_2(buffer, SIZE_OF_FILE,q_flag);
     free(buffer);
     close(client_socket);
     close(receiver_socket);
     return 0;
 }
 
-int uds_dgram_receiver(int sock)
+int uds_dgram_receiver(int sock,int q_flag)
 {
     struct pollfd pfd[2];
     int receiver_socket;
@@ -668,7 +677,7 @@ int uds_dgram_receiver(int sock)
         {
             // printf("the size: %zu\n", totalReceived);
             printf("uds_dgram,%.f\n", time_in_ms);
-            hash_2(buffer, SIZE_OF_FILE);
+            hash_2(buffer, SIZE_OF_FILE,q_flag);
             free(buffer);
             // close(client_socket);
             close(receiver_socket);
@@ -701,13 +710,13 @@ int uds_dgram_receiver(int sock)
             remaining -= received;
         }
     }
-    hash_2(buffer, SIZE_OF_FILE);
+    hash_2(buffer, SIZE_OF_FILE,q_flag);
     free(buffer);
     close(receiver_socket);
     return 0;
 }
 
-int pipe_receiver(char *filename, int sock)
+int pipe_receiver(char *filename, int sock,int q_flag)
 {
     struct pollfd pfd[2];
     int fifo_fd;
@@ -756,7 +765,7 @@ int pipe_receiver(char *filename, int sock)
         {
             // printf("the size: %zu\n", totalReceived);
             printf("pipe_%s,%.f\n", filename, time_in_ms);
-            hash_2(buffer, SIZE_OF_FILE);
+            hash_2(buffer, SIZE_OF_FILE,q_flag);
             free(buffer);
             close(fifo_fd);
             close(sock);
@@ -786,7 +795,7 @@ int pipe_receiver(char *filename, int sock)
             remaining -= received;
         }
     }
-    hash_2(buffer, SIZE_OF_FILE);
+    hash_2(buffer, SIZE_OF_FILE,q_flag);
     free(buffer);
     close(fifo_fd);
     close(sock);
@@ -794,7 +803,7 @@ int pipe_receiver(char *filename, int sock)
     return 0;
 }
 
-int mmap_receiver(char *file_name, int sock)
+int mmap_receiver(char *file_name, int sock,int q_flag)
 {
     int fd;
     uint8_t *mapped_file;
@@ -861,7 +870,7 @@ int mmap_receiver(char *file_name, int sock)
             data = malloc(SIZE_OF_FILE);
             memcpy(data, mapped_file, SIZE_OF_FILE);
             // apply hash function to the data
-            hash_2(data, SIZE_OF_FILE);
+            hash_2(data, SIZE_OF_FILE,q_flag);
             // unmap the memory
             if (munmap(mapped_file, SIZE_OF_FILE) < 0)
             {
@@ -891,7 +900,7 @@ int mmap_receiver(char *file_name, int sock)
     return 0;
 }
 
-int receiver(char *PORT)
+int receiver(char *PORT, int q_flag)
 {
     // creating a socket
     int receiver_socket;
@@ -969,35 +978,35 @@ int receiver(char *PORT)
 
     if (strcmp(TYPE, "ipv4") == 0 && strcmp(PARAM, "tcp") == 0)
     {
-        ipv4_tcp_receiver(IP, port, client_socket);
+        ipv4_tcp_receiver(IP, port, client_socket,q_flag);
     }
     else if (strcmp(TYPE, "ipv4") == 0 && strcmp(PARAM, "udp") == 0)
     {
-        ipv4_udp_receiver(IP, port, client_socket);
+        ipv4_udp_receiver(IP, port, client_socket,q_flag);
     }
     else if (strcmp(TYPE, "ipv6") == 0 && strcmp(PARAM, "tcp") == 0)
     {
-        ipv6_tcp_receiver(IP, port, client_socket);
+        ipv6_tcp_receiver(IP, port, client_socket,q_flag);
     }
     else if (strcmp(TYPE, "ipv6") == 0 && strcmp(PARAM, "udp") == 0)
     {
-        ipv6_udp_receiver(IP, port, client_socket);
+        ipv6_udp_receiver(IP, port, client_socket,q_flag);
     }
     else if (strcmp(TYPE, "uds") == 0 && strcmp(PARAM, "stream") == 0)
     {
-        uds_stream_receiver(client_socket);
+        uds_stream_receiver(client_socket,q_flag);
     }
     else if (strcmp(TYPE, "uds") == 0 && strcmp(PARAM, "dgram") == 0)
     {
-        uds_dgram_receiver(client_socket);
+        uds_dgram_receiver(client_socket,q_flag);
     }
     else if (strcmp(TYPE, "pipe") == 0)
     {
-        pipe_receiver(PARAM, client_socket);
+        pipe_receiver(PARAM, client_socket,q_flag);
     }
     else if (strcmp(TYPE, "mmap") == 0)
     {
-        mmap_receiver(PARAM, client_socket);
+        mmap_receiver(PARAM, client_socket,q_flag);
     }
 
     // receive the initial time in socket - "client_socket".

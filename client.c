@@ -77,15 +77,18 @@ int client(char *IP, char *PORT)
                 if (pfd[i].fd == 0)
                 {
                     // read from input and send to client socket
+                    bzero(buffer, 1024);
                     read(pfd[0].fd, buffer, 1024);
+                    bzero(stdin, 1024);
                     send(sender_socket, buffer, 1024, 0);
                 }
                 else if (pfd[i].fd == sender_socket)
                 {
                     // read from client socket and print to console
+                    bzero(buffer, 1024);
                     read(pfd[1].fd, buffer, 1024);
-                    printf("the data is:%s", buffer);
-                    printf("\n");
+                    bzero(stdin, 1024);
+                    printf("%s", buffer);
                 }
             }
         }
