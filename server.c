@@ -97,31 +97,23 @@ int server(char *PORT)
             continue;
         }
 
-        for (int i = 0; i < 2; i++)
+        if (pfd[0].revents & POLLIN)
         {
-            if (pfd[i].revents & POLLIN) // means we got something to read
-            {
-                if (pfd[i].fd == 0)
-                {
-                    // read from input and send to client socket
-                    bzero(buffer, 1024);
-                    read(pfd[0].fd, buffer, 1024);
-                    bzero(stdin, 1024);
-                    send(client_socket, buffer, 1024, 0);
-                }
-                else if (pfd[i].fd == client_socket)
-                {
-                    // read from client socket and print to console
-                    bzero(buffer, 1024);
-                    read(pfd[1].fd, buffer, 1024);
-                    bzero(stdin, 1024);
-                    printf("%s", buffer);
-                }
-            }
+            // read from input and send to client socket
+            bzero(buffer, 1024);
+            read(pfd[0].fd, buffer, 1024);
+            bzero(stdin, 1024);
+            send(client_socket, buffer, 1024, 0);
+        }
+        else if (pfd[1].revents & POLLIN)
+        {
+            // read from client socket and print to console
+            bzero(buffer, 1024);
+            read(pfd[1].fd, buffer, 1024);
+            bzero(stdin, 1024);
+            printf("%s", buffer);
         }
     }
-
     close(client_socket);
-
     return 0;
 }

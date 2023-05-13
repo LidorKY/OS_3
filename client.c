@@ -26,9 +26,9 @@ int client(char *IP, char *PORT)
     }
     //--------------------------------------------------------------------------------
     // initialize where to send
-    struct sockaddr_in Receiver_address;           // initialize where to send
-    Receiver_address.sin_family = AF_INET;         // setting for IPV4
-    Receiver_address.sin_port = htons(atoi(PORT));       // port is 9999
+    struct sockaddr_in Receiver_address;              // initialize where to send
+    Receiver_address.sin_family = AF_INET;            // setting for IPV4
+    Receiver_address.sin_port = htons(atoi(PORT));    // port is 9999
     Receiver_address.sin_addr.s_addr = inet_addr(IP); // listening to all (like 0.0.0.0)
     //---------------------------------------------------------------------------------
     // connecting the Sender and Receiver
@@ -70,30 +70,23 @@ int client(char *IP, char *PORT)
             continue;
         }
 
-        for (int i = 0; i < 2; i++)
+        if (pfd[0].revents & POLLIN)
         {
-            if (pfd[i].revents & POLLIN) // means we got something to read
-            {
-                if (pfd[i].fd == 0)
-                {
-                    // read from input and send to client socket
-                    bzero(buffer, 1024);
-                    read(pfd[0].fd, buffer, 1024);
-                    bzero(stdin, 1024);
-                    send(sender_socket, buffer, 1024, 0);
-                }
-                else if (pfd[i].fd == sender_socket)
-                {
-                    // read from client socket and print to console
-                    bzero(buffer, 1024);
-                    read(pfd[1].fd, buffer, 1024);
-                    bzero(stdin, 1024);
-                    printf("%s", buffer);
-                }
-            }
+            // read from input and send to client socket
+            bzero(buffer, 1024);
+            read(pfd[0].fd, buffer, 1024);
+            bzero(stdin, 1024);
+            send(sender_socket, buffer, 1024, 0);
+        }
+        else if (pfd[1].revents & POLLIN)
+        {
+            // read from client socket and print to console
+            bzero(buffer, 1024);
+            read(pfd[1].fd, buffer, 1024);
+            bzero(stdin, 1024);
+            printf("%s", buffer);
         }
     }
-
     close(sender_socket);
     return 0;
 }
